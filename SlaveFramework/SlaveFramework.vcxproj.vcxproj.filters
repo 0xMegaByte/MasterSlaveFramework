@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="Slave.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SlaveFramework.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Task.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SlaveDispatcher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Slave.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Task.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SlaveDispatcher.h">
+      <Filter>Resource Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{d2e9ca92-b5b6-4096-a826-9758d96d0571}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{303b1ee2-cd52-4078-b43d-5820460ad896}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

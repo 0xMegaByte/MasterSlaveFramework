@@ -1,0 +1,28 @@
+Slave:
+- Gets a command (sometimes with data and parameters)
+- Executes impl. commands with a given data (if needed)
+- Reports back to the master a valid response (data? data)
+- Slave wait for a command; master continue to send the next command
+
+Master:
+- Sends a command (with params) to a slave by its id
+- May post more commands to the same/other slaves
+- Process incoming reponses
+- Store responses' results
+
+
+----------------------------------------------------------------------
+
+Slave: Knows what is the task strutucre
+Master: dont know what is task (stracture), only sends a <taskid, slaveid, data>
+
+Both slaves and a master knows the packet structure
+""" knows the packet enum
+
+Both slaves communicate via a socket
+
+
+
+Optional:
+-Add a security layer and maybe hash/encrypt the transmited data
+
