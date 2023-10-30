@@ -2,8 +2,13 @@
 #include "..\Utils\Communication.h"
 #include "..\Utils\Utils.h"
 
-class MasterDispatcher : PacketDispatcher
+class MasterDispatcher : public PacketDispatcher
 {
-	unsigned long __stdcall DispatcherThread(void* lpv);
+public:
+	DWORD WINAPI DispatcherThread(LPVOID lpv) override;
+	void SocketSetup(const char* pcIpAddress, const unsigned short usPort);
+
+	MasterDispatcher() : PacketDispatcher() {};
+	~MasterDispatcher() {};
 };
 

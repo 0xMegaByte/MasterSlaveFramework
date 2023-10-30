@@ -1,27 +1,28 @@
 #include "pch.h"
+#pragma comment(lib,"Ws2_32.lib")
 
-MSF_Packet::MSF_Packet(MSF_PACKET_TYPE packetType, unsigned long ulSlaveId,
+MSFPacket::MSFPacket(EPACKET::TYPE packetType, unsigned long ulSlaveId,
 	unsigned long ulOpCode, unsigned char* pucBuffer)
 {
-	this->m_packetType = packetType;
+	this->m_epacketType = packetType;
 	this->m_ulSlaveId = ulSlaveId;
 	this->m_ulOpCode = ulOpCode;
 
-	memcpy_s(&this->m_ucBuffer, BUF_LEN, pucBuffer, BUF_LEN);
+	memcpy_s(this->m_ucBuffer, BUF_LEN, pucBuffer, BUF_LEN);
 
 
 }
 
-MSF_Packet::~MSF_Packet()
+MSFPacket::~MSFPacket()
 {
 }
 
-void PacketDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
-{
-	this->m_service.sin_family = AF_INET;
-	this->m_service.sin_port = usPort;
-	inet_pton(AF_INET, pcIpAddress, &this->m_service.sin_addr.S_un.S_addr); 
-}
+//void PacketDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
+//{
+//	this->m_service.sin_family = AF_INET;
+//	this->m_service.sin_port = usPort;
+//	inet_pton(AF_INET, pcIpAddress, &this->m_service.sin_addr.S_un.S_addr);
+//}
 
 SOCKET PacketDispatcher::GetSocket()
 {
@@ -33,31 +34,79 @@ sockaddr_in PacketDispatcher::GetService()
 	return this->m_service;
 }
 
+MSFPacketQueue* PacketDispatcher::GetPacketQueue()
+{
+	return this->m_pPacketQueue;
+}
+
 void PacketDispatcher::Initialize()
 {
 	//Initialize Winsock
 	if (WSAStartup(MAKEWORD(2, 2), &this->m_wsaData) == 0)
 	{
-		bWSA = true;
 		//Create a socket
 		this->m_socket = socket(AF_INET, SOCK_STREAM, SOCK_STREAM /*TCP*/);
 	}
+
+	if (!this->m_pPacketQueue)
+		this->m_pPacketQueue = new MSFPacketQueue(); //TODO: Destroyer
+
+	////Create Event
+	//if (this->m_hDispatcherEvent = INVALID_HANDLE_VALUE)
+	//	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+	bWSA = true;
 }
 
 void PacketDispatcher::Deinitialize()
 {
 	if (this->m_socket)
 		closesocket(this->m_socket);
-	if(bWSA)
-		WSACleanup(); //TODO: Add an indicator that WSA started up
+	if (bWSA)
+	{
+		WSACleanup();
+		bWSA = false;
+	}
+
+	//Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
+	if (this->m_hDispatcherEvent != INVALID_HANDLE_VALUE)
+		CloseHandle(this->m_hDispatcherEvent);
+
+	DELETE_PTR(this->m_pPacketQueue);
 }
 
-PacketDispatcher::PacketDispatcher()
+void PacketDispatcher::Start()
 {
-	this->m_socket = INVALID_SOCKET;
-	ZeroMemory(&this->m_service, sizeof(sockaddr_in));
-	ZeroMemory(&this->m_wsaData, sizeof(m_wsaData));
+	bStart = true;
+	//Change event to signaled state
+	if (!IsEventStateSignaled(this->m_hDispatcherEvent))
+		SetEvent(this->m_hDispatcherEvent);
+}
+
+void PacketDispatcher::Terminate()
+{
+	//Reset event to non-signaled state
+	this->bStart = false;
+
+	if (IsEventStateSignaled(this->m_hDispatcherEvent))
+		ResetEvent(this->m_hDispatcherEvent);
+}
+
+bool PacketDispatcher::IsEventStateSignaled(void* hEvent)
+{
+	return WaitForSingleObject(hEvent, 0) == WAIT_OBJECT_0 ? true : false;
+}
+
+PacketDispatcher::PacketDispatcher() : m_socket(INVALID_SOCKET),
+m_pPacketQueue(nullptr)
+{
+	ZeroMemory(&this->m_service, sizeof(this->m_service));
+	ZeroMemory(&this->m_wsaData, sizeof(this->m_wsaData));
+
 	this->bWSA = false;
+	this->bStart = false;
+
+	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 }
 
 PacketDispatcher::~PacketDispatcher()
