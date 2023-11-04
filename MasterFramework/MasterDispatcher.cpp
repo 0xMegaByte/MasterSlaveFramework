@@ -87,7 +87,8 @@ DWORD WINAPI MasterDispatcher::DispatcherThread(LPVOID lpv)
 
 							memcpy_s(buffer, sizeof(MSFPacket), packet, sizeof(MSFPacket));
 							
-							//TODO: sending too much information
+							//TODO: make the packet sendong size dynamic. 
+							// no need to send the whole empty bytes in the param.
 							//send(slave_socket, (const char*)packet, sizeof(packet), 0);
 							send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
 
