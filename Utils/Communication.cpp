@@ -8,7 +8,7 @@ MSFPacket::MSFPacket(EPACKET::TYPE packetType, unsigned long ulSlaveId,
 	this->m_ulSlaveId = ulSlaveId;
 	this->m_ulOpCode = ulOpCode;
 
-	memcpy_s(this->m_ucBuffer, BUF_LEN, pucBuffer, BUF_LEN);
+	memcpy_s(this->m_ucBuffer, BUF_LEN, pucBuffer, sizeof(pucBuffer));
 
 
 }
@@ -29,9 +29,9 @@ SOCKET PacketDispatcher::GetSocket()
 	return this->m_socket;
 }
 
-sockaddr_in PacketDispatcher::GetService()
+addrinfo* PacketDispatcher::GetService()
 {
-	return this->m_service;
+	return this->m_pservice;
 }
 
 MSFPacketQueue* PacketDispatcher::GetPacketQueue()
@@ -39,23 +39,39 @@ MSFPacketQueue* PacketDispatcher::GetPacketQueue()
 	return this->m_pPacketQueue;
 }
 
+void PacketDispatcher::SocketWSACleanup()
+{
+	if (this->bWSA)
+	{
+		WSACleanup();
+		this->bWSA = false;
+		DEBUG_PRINT("Completed\n");
+	}
+}
+
 void PacketDispatcher::Initialize()
 {
 	//Initialize Winsock
-	if (WSAStartup(MAKEWORD(2, 2), &this->m_wsaData) == 0)
+	if (WSAStartup(MAKEWORD(2, 2), &this->m_wsaData) != 0)
 	{
-		//Create a socket
-		this->m_socket = socket(AF_INET, SOCK_STREAM, SOCK_STREAM /*TCP*/);
+		DEBUG_PRINT("WSA ERROR: %d", WSA_ERR);
 	}
 
 	if (!this->m_pPacketQueue)
+	{
 		this->m_pPacketQueue = new MSFPacketQueue(); //TODO: Destroyer
+		if (this->m_pPacketQueue)
+			DEBUG_PRINT("Packet queue created\n");
+
+	}
 
 	////Create Event
 	//if (this->m_hDispatcherEvent = INVALID_HANDLE_VALUE)
 	//	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	bWSA = true;
+
+	DEBUG_PRINT("Completed\n");
 }
 
 void PacketDispatcher::Deinitialize()
@@ -64,8 +80,7 @@ void PacketDispatcher::Deinitialize()
 		closesocket(this->m_socket);
 	if (bWSA)
 	{
-		WSACleanup();
-		bWSA = false;
+		this->SocketWSACleanup();
 	}
 
 	//Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
@@ -98,9 +113,9 @@ bool PacketDispatcher::IsEventStateSignaled(void* hEvent)
 }
 
 PacketDispatcher::PacketDispatcher() : m_socket(INVALID_SOCKET),
-m_pPacketQueue(nullptr)
+m_pPacketQueue(nullptr), m_pservice(nullptr)
 {
-	ZeroMemory(&this->m_service, sizeof(this->m_service));
+	//ZeroMemory(&this->m_pservice, sizeof(this->m_pservice));
 	ZeroMemory(&this->m_wsaData, sizeof(this->m_wsaData));
 
 	this->bWSA = false;

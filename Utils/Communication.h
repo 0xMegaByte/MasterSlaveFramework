@@ -65,7 +65,7 @@ private:
 	unsigned long m_ulOpCode;			//Task or Response
 	unsigned long m_ulSlaveId;			//Slave Id recv/send
 
-	unsigned char m_ucBuffer[512]{ 0 }; //Params
+	unsigned char m_ucBuffer[BUF_LEN]{ 0 }; //Params
 
 public:
 	MSFPacket(EPACKET::TYPE packetType, unsigned long ulSlaveId,
@@ -85,7 +85,7 @@ public:
 //	~PacketBulilder();
 //};
 
-typedef std::deque<MSFPacket> MSFPacketQueue;
+typedef std::deque<MSFPacket*> MSFPacketQueue;
 
 class PacketDispatcher
 {
@@ -97,7 +97,9 @@ protected:
 	bool bWSA;
 	bool bStart;
 	SOCKET m_socket;
-	sockaddr_in m_service;
+	//sockaddr_in m_service;
+	addrinfo* m_pservice;/*
+	addrinfo m_hints;*/
 
 	void* m_hDispatcherEvent;
 
@@ -123,9 +125,11 @@ public:
 
 
 	SOCKET GetSocket();			//Returns sockets
-	sockaddr_in GetService();	//Returns service
+	addrinfo* GetService();	//Returns service
 
 	MSFPacketQueue* GetPacketQueue();
+
+	void SocketWSACleanup();
 
 	PacketDispatcher();
 	~PacketDispatcher();

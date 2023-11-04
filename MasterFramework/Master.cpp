@@ -32,7 +32,11 @@ void Master::CreateDispatcher()
 	if (this->m_hDispatcherThread == INVALID_HANDLE_VALUE)
 	{
 		this->m_hDispatcherThread = CreateThread(0, 0, DispatcherThreadWrapper, this->m_pDispatcher, 0, 0);
+		if (this->m_hDispatcherThread)
+			DEBUG_PRINT("Dispatcher thread started\n");
 	}
+
+	DEBUG_PRINT("Completed\n");
 }
 void Master::DestroyDispatcher()
 {
