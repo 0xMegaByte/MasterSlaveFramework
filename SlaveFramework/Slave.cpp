@@ -58,15 +58,15 @@ Task* Slave::PopTask()
 
 
 
-Slave::Slave(unsigned long ulSlaveId)
+Slave::Slave(unsigned long ulSlaveId) : 
+	m_pDispatcher(nullptr), m_hDispatcherThread(INVALID_HANDLE_VALUE)
 {
 	this->m_ulSlaveId = ulSlaveId;
-	//this->m_pTaskQueue = new TaskQueue();
-	//this->m_pSlaveDispatcher = nullptr;
-
+	this->m_pTaskQueue = new TaskQueue();
 }
 Slave::~Slave()
 {
+	//TODO: Slave dtor
 	//this->EmptyTaskQueue();
 	//DELETE_PTR(this->m_pTaskQueue);
 	//DELETE_PTR(this->m_pSlaveDispatcher);
@@ -77,15 +77,31 @@ Slave::~Slave()
 /// Handle Dispatcher
 /// </summary>
 
+DWORD WINAPI DispatcherThreadWrapper(LPVOID lpv)
+{
+	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
+	return psd->DispatcherThread(nullptr);
+}
+
 void Slave::CreateDispatcher()
 {
-	if (!this->m_pSlaveDispatcher)
-		this->m_pSlaveDispatcher = new SlaveDispatcher();
+	if (!this->m_pDispatcher)
+		this->m_pDispatcher = new SlaveDispatcher();
+
+	if (this->m_hDispatcherThread == INVALID_HANDLE_VALUE)
+	{
+		this->m_hDispatcherThread = CreateThread(0, 0, DispatcherThreadWrapper, this->m_pDispatcher,0,0);
+	}
 }
 
 void Slave::DestroyDispatcher()
 {
-	DELETE_PTR(this->m_pSlaveDispatcher);
+	DELETE_PTR(this->m_pDispatcher);
+}
+
+SlaveDispatcher* Slave::GetDispatcher()
+{
+	return this->m_pDispatcher ? this->m_pDispatcher : nullptr;
 }
 
 /// <summary>

@@ -2,19 +2,56 @@
 //
 
 #include <iostream>
+#include "Master.h"
 
 int main()
 {
-    std::cout << "Hello World!\n";
-}
+	//Create master
+	Master* pMaster = new Master();
 
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
+	if (pMaster)
+	{
+		DEBUG_PRINT("Master started\n");
 
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
+		//Establish Master-Slave
+		pMaster->CreateDispatcher();
+
+		MasterDispatcher* pmd = (pMaster)->GetDispatcher();
+		if (pmd)
+		{
+			pmd->Initialize();
+			pmd->SocketSetup(nullptr, 6969);
+			pmd->Start(); //Start Dispatcher Thread
+
+			DEBUG_PRINT("Master disptacher initialized\n");
+
+			//Create packets out of command or any interface
+			//pMaster->CreatePacket()->QueuePush()
+			MSFPacket* pPacket = new MSFPacket(EPACKET::TYPE::MSF_TASK_PACKET, 1, EPACKET::CMD::TASK::TASK_BEEP, (unsigned char*)"Test");
+			MSFPacketQueue* ppq = pmd->GetPacketQueue();
+
+			if (ppq)
+			{
+				ppq->push_back(pPacket);
+				//Check Dispatcher Thread to handle the new packet
+
+			}
+
+			//TODO: USE DATABASE TO REMEMBER WHICH SLAVE HAS WHAT IP
+
+
+
+			//TODO: MANAGE THE RECIEVE SIDE MASTER AND SLAVE
+
+			while (true)
+			{
+				//LOOP UNTIL TERMINATION
+			}
+
+			//DELETE_PTR(pmd);
+		}
+	}
+
+	
+
+}	

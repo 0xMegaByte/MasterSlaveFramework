@@ -1,7 +1,6 @@
 #pragma once
-#include "..\Utils\pch.h"
-#include <deque>
-#include <mutex>
+#include "..\Utils\Utils.h"
+
 
 //#define DELETE(ptr) if(ptr){decltype(ptr) tmptr = ptr; ptr = nullptr; delete tmptr;}
 

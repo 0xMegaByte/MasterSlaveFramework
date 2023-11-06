@@ -12,7 +12,8 @@ private:
 	TaskQueue* m_pTaskQueue;
 	std::mutex m_TaskQueueMutex;
 
-	SlaveDispatcher* m_pSlaveDispatcher;
+	SlaveDispatcher* m_pDispatcher;
+	void* m_hDispatcherThread;
 public:
 	Slave(unsigned long ulSlaveId);
 	~Slave();
@@ -20,6 +21,7 @@ public:
 	//Handle Dispatcher
 	void CreateDispatcher();
 	void DestroyDispatcher();
+	SlaveDispatcher* GetDispatcher();
 
 	//Handle TaskQueue
 	void CreateTaskQueue();
