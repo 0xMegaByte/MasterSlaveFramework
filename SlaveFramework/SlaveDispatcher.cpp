@@ -23,6 +23,7 @@ DWORD __stdcall SlaveDispatcher::DispatcherThread(LPVOID lpv)
 				DEBUG_PRINT("connect failed! WSA:%d\n", WSA_ERR);
 				closesocket(this->GetSocket());
 				this->m_socket = INVALID_SOCKET;
+				//TODO: BUG: WHEN FAILED, THE SOFTWARE CONTINUES TO RUN
 			}
 
 			//this->service can be freed
@@ -80,6 +81,7 @@ DWORD __stdcall SlaveDispatcher::DispatcherThread(LPVOID lpv)
 								DEBUG_PRINT("Recv failed: %d\n", WSA_ERR);
 							}
 
+							Sleep(500);
 						} while (nResults > 0); //failed? terminate? retry?
 
 
