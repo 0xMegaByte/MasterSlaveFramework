@@ -17,12 +17,22 @@ MSFPacket::~MSFPacket()
 {
 }
 
-//void PacketDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
-//{
-//	this->m_service.sin_family = AF_INET;
-//	this->m_service.sin_port = usPort;
-//	inet_pton(AF_INET, pcIpAddress, &this->m_service.sin_addr.S_un.S_addr);
-//}
+EPACKET::TYPE MSFPacket::getPacketType()
+{
+	return this->m_epacketType;
+}
+
+unsigned long MSFPacket::getOpCode()
+{
+	return this->m_ulOpCode;
+}
+
+unsigned char* MSFPacket::getBuffer()
+{
+	return this->m_ucBuffer;
+}
+
+//-----------------Packet Dispatcher----------------------
 
 SOCKET PacketDispatcher::GetSocket()
 {
@@ -41,10 +51,10 @@ MSFPacketQueue* PacketDispatcher::GetPacketQueue()
 
 void PacketDispatcher::SocketWSACleanup()
 {
-	if (this->bWSA)
+	if (this->m_bWSA)
 	{
 		WSACleanup();
-		this->bWSA = false;
+		this->m_bWSA = false;
 		DEBUG_PRINT("Completed\n");
 	}
 }
@@ -69,7 +79,7 @@ void PacketDispatcher::Initialize()
 	//if (this->m_hDispatcherEvent = INVALID_HANDLE_VALUE)
 	//	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
-	bWSA = true;
+	this->m_bWSA = true;
 
 	DEBUG_PRINT("Completed\n");
 }
@@ -78,7 +88,7 @@ void PacketDispatcher::Deinitialize()
 {
 	if (this->m_socket)
 		closesocket(this->m_socket);
-	if (bWSA)
+	if (this->m_bWSA)
 	{
 		this->SocketWSACleanup();
 	}
@@ -92,7 +102,7 @@ void PacketDispatcher::Deinitialize()
 
 void PacketDispatcher::Start()
 {
-	bStart = true;
+	this->m_bStart = true;
 	//Change event to signaled state
 	if (!IsEventStateSignaled(this->m_hDispatcherEvent))
 		SetEvent(this->m_hDispatcherEvent);
@@ -101,7 +111,7 @@ void PacketDispatcher::Start()
 void PacketDispatcher::Terminate()
 {
 	//Reset event to non-signaled state
-	this->bStart = false;
+	this->m_bStart = false;
 
 	if (IsEventStateSignaled(this->m_hDispatcherEvent))
 		ResetEvent(this->m_hDispatcherEvent);
@@ -118,8 +128,8 @@ m_pPacketQueue(nullptr), m_pservice(nullptr)
 	//ZeroMemory(&this->m_pservice, sizeof(this->m_pservice));
 	ZeroMemory(&this->m_wsaData, sizeof(this->m_wsaData));
 
-	this->bWSA = false;
-	this->bStart = false;
+	this->m_bWSA = false;
+	this->m_bStart = false;
 
 	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 }

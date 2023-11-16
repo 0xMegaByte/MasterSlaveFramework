@@ -20,19 +20,17 @@ int main()
 		{
 			psd->Initialize();
 			psd->SocketSetup("127.0.0.1", 6969);
-			psd->Start();
+			psd->Connect();
 
-			DEBUG_PRINT("Slave disptacher initialized\n");
-
-			//Create tasks out of packets
-
-			if (MSFPacketQueue* ppq = psd->GetPacketQueue())
+			if (psd->IsDispatcherConnected())
 			{
+				psd->Start();
 
+				DEBUG_PRINT("Slave disptacher Started\n");
 			}
 
 
-			//Execture tasks
+			//Execute tasks
 
 			/*pSlave->PushTask(new Task(1001));
 			Task* pTask = pSlave->PopTask();
@@ -41,7 +39,7 @@ int main()
 			//Report tasks results
 			while (true)
 			{
-				//LOOP UNTIL TERMINATION
+				//LOOP UNTIL TERMINATION for tests
 			}
 
 			//DELETE_PTR(psd);

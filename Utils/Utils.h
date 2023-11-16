@@ -1,5 +1,6 @@
 #pragma once
 #include <deque>
+#include <unordered_map>
 #include <mutex>
 
 #define DELETE_PTR(ptr) if(ptr){decltype(ptr) tmptr = ptr; ptr = nullptr; delete tmptr;}

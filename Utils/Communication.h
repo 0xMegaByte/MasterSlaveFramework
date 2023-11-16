@@ -71,6 +71,10 @@ public:
 	MSFPacket(EPACKET::TYPE packetType, unsigned long ulSlaveId,
 		unsigned long ulOpCode, unsigned char* pucBuffer);
 	~MSFPacket();
+
+	EPACKET::TYPE getPacketType();
+	unsigned long getOpCode();
+	unsigned char* getBuffer();
 };
 
 
@@ -94,8 +98,8 @@ private:
 	WSADATA m_wsaData;
 
 protected:
-	bool bWSA;
-	bool bStart;
+	bool m_bWSA;
+	bool m_bStart;
 	SOCKET m_socket;
 	//sockaddr_in m_service;
 	addrinfo* m_pservice;/*
@@ -112,7 +116,8 @@ public:
 	//Initiate service with ip-port
 	virtual void SocketSetup(const char* pcIpAddress, const unsigned short usPort) = 0;
 
-	virtual DWORD WINAPI DispatcherThread(LPVOID lpv) = 0; //Pure virtual func. to impl. in slave & master
+	virtual DWORD WINAPI SendThread(LPVOID lpv) = 0; //Pure virtual func. to impl. in slave & master
+	virtual DWORD WINAPI ReceiveThread(LPVOID lpv) = 0;
 
 	void Initialize();		//Setup WSA and initialize m_hDispatcherEvent handle
 	void Deinitialize();	//Close socket, Cleanup WSA and Close m_hDispatcherEvent handle
