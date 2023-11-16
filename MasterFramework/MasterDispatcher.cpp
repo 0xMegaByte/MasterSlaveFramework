@@ -1,77 +1,28 @@
 #include "MasterDispatcher.h"
 
-DWORD WINAPI MasterDispatcher::DispatcherThread(LPVOID lpv)
+//TODO: Delete. for test only
+SOCKET slave_socket = INVALID_SOCKET;
+
+DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 {
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
 		DEBUG_PRINT("Dispatcher event signaled\n");
 
 		//Check if WSA's status
-		if (this->bWSA)
+		if (this->m_bWSA)
 		{
 
 			SOCKET& master_socket = this->m_socket; //Ref. to the socket for better understanding
 
 			if (this->m_socket)
 			{
-#pragma region bind
-				//Bind to a network address
-				auto& service = this->m_pservice;
-				int nRes = bind(this->m_socket, service->ai_addr, (int)service->ai_addrlen);
+				//Handle Packet Queue
+				MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
 
-				if (nRes == SOCKET_ERROR)
+				while (this->m_bStart) //Flag to terminate this thread
 				{
-					//fail
-					DEBUG_PRINT("bind() failed! WSA:%d\n", WSA_ERR);
-					closesocket(master_socket);
-					this->m_socket = INVALID_SOCKET;
-					this->SocketWSACleanup();
-				}
-
-				DEBUG_PRINT("Master socket bind() successfully.\n");
-#pragma endregion
-#pragma region listen
-
-				//Start listen on the address-port for incoming connections
-
-				nRes = listen(master_socket, SOMAXCONN);
-
-				if (nRes == SOCKET_ERROR)
-				{
-					//fail
-					DEBUG_PRINT("listen() failed! WSA:%ld\n", WSA_ERR);
-					closesocket(master_socket);
-					this->m_socket = INVALID_SOCKET;
-					this->SocketWSACleanup();
-
-				}
-
-				DEBUG_PRINT("Master socket listen() successfully.\n");
-
-#pragma endregion
-#pragma region accept
-				//Accept client socket
-
-				SOCKET slave_socket = INVALID_SOCKET;
-				slave_socket = accept(master_socket, NULL, NULL);
-
-				if (slave_socket == INVALID_SOCKET)
-				{
-					//fail
-					DEBUG_PRINT("accept() failed! WSA:%ld\n", WSA_ERR);
-					closesocket(master_socket);
-					this->m_socket = INVALID_SOCKET;
-					this->SocketWSACleanup();
-				}
-
-				DEBUG_PRINT("Master socket accepted slave socket successfully.\n");
-
-#pragma endregion
-
-				while (this->bStart) //Flag to terminate this thread
-				{
-					//Handle Packet Queue
-					MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
+					
 
 					//delay?
 
@@ -81,27 +32,36 @@ DWORD WINAPI MasterDispatcher::DispatcherThread(LPVOID lpv)
 						{
 							DEBUG_PRINT("Packet queue size: %llu.\n", pPacketQueue->size());
 
-							MSFPacket* packet = pPacketQueue->front();
+							MSFPacket* pPacket = pPacketQueue->front();
+
+							
+
+
 
 							char buffer[sizeof(MSFPacket)]{ 0 };
 
-							memcpy_s(buffer, sizeof(MSFPacket), packet, sizeof(MSFPacket));
-							
+							memcpy_s(buffer, sizeof(MSFPacket), pPacket, sizeof(MSFPacket));
+
 							//TODO: make the packet sendong size dynamic. 
 							// no need to send the whole empty bytes in the param.
 							//send(slave_socket, (const char*)packet, sizeof(packet), 0);
+							
+
+
+
 							send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
 
 							DEBUG_PRINT("Packet sent successfully.\n");
 
-							//pPacketQueue->pop_front(); commented for test
+							delete pPacketQueue->front();
+							pPacketQueue->pop_front();// commented for test
 						}
 					}
 
-					//Check if any recv response buffer
+					////Check if any recv response buffer
 
 
-					int nResults, nSendResults;
+					/*int nResults, nSendResults;
 					char cRecvBuf[BUF_LEN]{ 0 };
 
 					nResults = nSendResults = 0;
@@ -129,18 +89,159 @@ DWORD WINAPI MasterDispatcher::DispatcherThread(LPVOID lpv)
 						}
 
 					} while (nResults > 0);
+					*/
 				}
 			}
 		}
 		//close?
 
 	}
+	DEBUG_PRINT("Thread existed\n");
+	return 0;
+}
+
+DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
+{
+	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
+	{
+		if (this->m_bWSA)
+		{
+			//Check if any recv response buffer
+
+
+			int nResults, nSendResults;
+			char cRecvBuf[BUF_LEN]{ 0 };
+
+			nResults = nSendResults = 0;
+
+			//TODO: iterate slaves' sockets
+			while (slave_socket == INVALID_SOCKET)
+			{
+				//TODO: Test only, waits for slave_socket to be valid
+			}
+			do
+			{
+				nResults = recv(slave_socket, cRecvBuf, BUF_LEN, 0);
+
+				if (nResults > 0)
+				{
+					int i = 1;
+					++i;
+					printf("Bytes received to master: %d\n", 1);
+					//Handle recived bytes as MSFpacket
+					//Report to DB packets response using the MSFpacket data
+				}
+				else if (nResults == 0)
+				{
+					printf("Connection closing...\n");
+				}
+				else
+				{
+					//fail
+					printf("%d\n", WSA_ERR);
+				}
+
+			} while (nResults > 0); //BUG: Thread terminates due to the socket initialization is in the send thread and not outside these threads
+		}
+	}
+	DEBUG_PRINT("Thread Exited\n");
+	return 0;
+}
+
+struct ProcessSlaveStruct
+{
+	MasterDispatcher* pmd;
+	SOCKET socket;
+};
+
+DWORD WINAPI ProcessSlaveWrapper(LPVOID lpv)
+{
+	ProcessSlaveStruct* pss = static_cast<ProcessSlaveStruct*>(lpv);
+	if (pss)
+	{
+		MasterDispatcher* pmd = pss->pmd;
+		if (pmd)
+		{
+			pmd->ProcessSlave((LPVOID)pss->socket);
+		}
+	}
+
+
+	return 0;
+}
+
+DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
+{
+	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
+	{
+		if (this->m_bWSA)
+		{
+			//Gets an empty vector of SOCKET type
+			//Use tempSOCKET to wait on an incoming connection
+			//When tempSOCKET is a valid socket
+			//Copy ctor it to the vector
+			//Reset the tempSocket (assign INVALID_SOCKET)
+			//Repeat
+
+			SOCKET& master_socket = this->m_socket;
+			SOCKET tempSocket = INVALID_SOCKET;
+			while (this->m_bStart)
+			{
+				do
+				{
+					tempSocket = accept(master_socket, 0, 0);
+
+				} while (tempSocket == INVALID_SOCKET);
+
+				//Connection accepted
+				DEBUG_PRINT("Master socket accepted slave socket successfully.\n");
+				//Create thead with
+
+				DWORD dwThreadId = 0;
+
+				ProcessSlaveStruct pss{ this,tempSocket };
+
+				CreateThread(0, 0, ProcessSlaveWrapper, &pss, 0, &dwThreadId);
+
+				tempSocket = INVALID_SOCKET;
+				
+
+				
+
+				//
+
+			}
+		}
+	}
+
+	return 0;
+}
+
+DWORD __stdcall MasterDispatcher::ProcessSlave(LPVOID lpv)
+{
+	SOCKET SlaveSocket = (SOCKET)lpv;
+
+	if (SlaveSocket)
+	{
+		int nbytesSent;
+		int nbytesRecv = SOCKET_ERROR;
+		char sendBuf[BUF_LEN];
+		char recvBuf[BUF_LEN];
+
+		//Send init packet
+
+		while (this->m_bStart)
+		{
+
+		}
+	}
+
 	return 0;
 }
 
 void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
 {
-	if (this->bWSA)
+	if (this->m_bWSA)
 	{
 		addrinfo hints;
 
@@ -172,8 +273,50 @@ void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short
 				//TODO: Remember to free addrinfo using (freeaddrinfo(m_service))
 			}
 
-			if (this->m_socket != INVALID_SOCKET)
+			if (this->m_socket)
+			{
 				DEBUG_PRINT("Socket initialized\n");
+
+				addrinfo*& service = this->m_pservice;
+
+#pragma region bind
+
+				int nRes = bind(this->m_socket, service->ai_addr, (int)service->ai_addrlen);
+
+				if (nRes == SOCKET_ERROR)
+				{
+					//fail
+					DEBUG_PRINT("bind() failed! WSA:%d\n", WSA_ERR);
+					closesocket(this->m_socket);
+					this->m_socket = INVALID_SOCKET;
+					this->SocketWSACleanup();
+				}
+
+				DEBUG_PRINT("Master socket bind() successfully.\n");
+#pragma endregion
+#pragma region listen
+
+				//Start listen on the address-port for incoming connections
+
+				nRes = listen(this->m_socket, SOMAXCONN);
+
+				if (nRes == SOCKET_ERROR)
+				{
+					//fail
+					DEBUG_PRINT("listen() failed! WSA:%ld\n", WSA_ERR);
+					closesocket(this->m_socket);
+					this->m_socket = INVALID_SOCKET;
+					this->SocketWSACleanup();
+
+				}
+
+				DEBUG_PRINT("Master socket listen() successfully.\n");
+
+#pragma endregion
+
+			}
+
+
 		}
 	}
 	else

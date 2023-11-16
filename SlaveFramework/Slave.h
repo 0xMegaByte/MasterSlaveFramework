@@ -13,7 +13,8 @@ private:
 	std::mutex m_TaskQueueMutex;
 
 	SlaveDispatcher* m_pDispatcher;
-	void* m_hDispatcherThread;
+	void* m_hSendThread;
+	void* m_hReceiveThread;
 public:
 	Slave(unsigned long ulSlaveId);
 	~Slave();
@@ -30,5 +31,8 @@ public:
 	void EmptyTaskQueue();
 	void PushTask(Task* pTask); //Back
 	Task* PopTask(); //Front
+
+	//Utils
+	unsigned long GetSlaveId();
 };
 
