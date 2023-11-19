@@ -31,29 +31,30 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 							{
 								printf("Bytes received: %d\n", nResults);
 								//Handle recived bytes as MSFpacket
-								MSFPacket* Packet = (MSFPacket*)cRecvBuf;
+								MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
+								if (pPacket)
+								{
+									DEBUG_PRINT("Packet data: %d | %lu | %s\n",
+										pPacket->getPacketType(), pPacket->getOpCode(),
+										pPacket->getBuffer());
 
-								DEBUG_PRINT("Packet data: %d | %lu | %s\n",
-									Packet->getPacketType(), Packet->getOpCode(),
-									Packet->getBuffer());
+									if (pPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
+									{
 
-								//->ParsePacket() -> CreateTask
+									}
 
-								//Create task using the MSFpacket data
-								//Add task to Taskqueue
 
-								//Add response to Packet queue 
-								const char* pucBuffer = "<this-ip><port>";
+										//Add response to Packet queue 
+										const char* pucBuffer = "<this-ip><port>";
 
-								MSFPacket* pRegisterConnection =
-									new MSFPacket(EPACKET::TYPE::MSF_RESP_PACKET,
-										999,
-										EPACKET::RESP::CODE::SLAVE_MASTER_OK_RESPONSE,
-										(unsigned char*)pucBuffer);
+									MSFPacket* pRegisterConnection =
+										new MSFPacket(EPACKET::PacketType::ResponsePacket,
+											999,
+											EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+											(unsigned char*)pucBuffer);
 
-								pPacketQueue->push_back(pRegisterConnection);
-
-							
+									pPacketQueue->push_back(pRegisterConnection);
+								}
 							}
 							else if (nResults == 0)
 							{

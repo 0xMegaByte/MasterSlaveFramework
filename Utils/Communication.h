@@ -5,89 +5,53 @@
 
 #define WSA_ERR WSAGetLastError()
 
-
-
-//enum class MSF_PACKET_TYPE
-//{
-//	MSF_TASK_PACKET = 0,
-//	MSF_RESP_PACKET
-//};
-
-
-
-namespace EPACKET
-{
-	enum class TYPE
-	{
-		MSF_TASK_PACKET = 0,
-		MSF_RESP_PACKET
+namespace EPACKET {
+	// Enum class for packet types
+	enum class PacketType {
+		TaskPacket = 0,
+		ResponsePacket,
+		Acknowledge
 	};
 
-	//_OPCODE
+	namespace CMD {
+		// Communication setup packet
+		constexpr int MASTER_SLAVE_ACK_CONNECTION = 1000;
+			//constexpr int MASTER_SLAVE_DEINIT_CONNECTION = 1001;
+		constexpr int SLAVE_MASTER_ACK_CONNECTION_RESPONSE = 1002; //response token?
 
-	class CMD
-	{
-	public:
-		//Communication setup packet
-		enum COMM
-		{
-			MASTER_SLAVE_INIT_CONNECTION = 1000,
-			MASTER_SLAVE_DEINIT_CONNECTION,
-			SLAVE_MASTER_CONNECTION_RESPONSE,
-		};
+		// Tasks enum
+		constexpr int TASK_BEEP = 2000;
+		constexpr int TASK_OPEN_CMD = 2001;
 
-		enum TASK
-		{
-			//TASKs enum
-			TASK_BEEP = 2000,
-			TASK_OPEN_CMD
+		// Add more slave's tasks here ...
+	}
 
-			//Enter here more slave's tasks ...
-
-		};
+	namespace RESP {
+		// Response codes
+		constexpr int SLAVE_MASTER_OK_RESPONSE = 3000;
 	};
+}
 
-	class RESP
-	{
-	public:
-		enum CODE
-		{
-			SLAVE_MASTER_OK_RESPONSE = 3000
-		};
-	};
-
-};
+#define MSFPACKET_SIZE sizeof(MSFPacket)
 
 class MSFPacket						//Not socket but part of the socket
 {
 private:
-	EPACKET::TYPE  m_epacketType;
+	EPACKET::PacketType  m_epacketType;
 	unsigned long m_ulOpCode;			//Task or Response
 	unsigned long m_ulSlaveId;			//Slave Id recv/send
 
 	unsigned char m_ucBuffer[BUF_LEN]{ 0 }; //Params
 
 public:
-	MSFPacket(EPACKET::TYPE packetType, unsigned long ulSlaveId,
+	MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,
 		unsigned long ulOpCode, unsigned char* pucBuffer);
 	~MSFPacket();
 
-	EPACKET::TYPE getPacketType();
+	EPACKET::PacketType getPacketType();
 	unsigned long getOpCode();
 	unsigned char* getBuffer();
 };
-
-
-//class PacketBulilder
-//{
-//
-//public:
-//
-//
-//
-//	PacketBulilder();
-//	~PacketBulilder();
-//};
 
 typedef std::deque<MSFPacket*> MSFPacketQueue;
 
@@ -100,24 +64,15 @@ private:
 protected:
 	bool m_bWSA;
 	bool m_bStart;
+
 	SOCKET m_socket;
-	//sockaddr_in m_service;
-	addrinfo* m_pservice;/*
-	addrinfo m_hints;*/
+	addrinfo* m_pservice;
 
 	void* m_hDispatcherEvent;
-
-	//MSFPacket Queue
-	MSFPacketQueue* m_pPacketQueue;
-
-
+	//MSFPacketQueue* m_pPacketQueue;
 public:
 
-	//Initiate service with ip-port
 	virtual void SocketSetup(const char* pcIpAddress, const unsigned short usPort) = 0;
-
-	virtual DWORD WINAPI SendThread(LPVOID lpv) = 0; //Pure virtual func. to impl. in slave & master
-	virtual DWORD WINAPI ReceiveThread(LPVOID lpv) = 0;
 
 	void Initialize();		//Setup WSA and initialize m_hDispatcherEvent handle
 	void Deinitialize();	//Close socket, Cleanup WSA and Close m_hDispatcherEvent handle
@@ -128,44 +83,14 @@ public:
 	bool IsEventStateSignaled(void* hEvent);
 
 
-
 	SOCKET GetSocket();			//Returns sockets
-	addrinfo* GetService();	//Returns service
+	addrinfo* GetService();		//Returns service
 
-	MSFPacketQueue* GetPacketQueue();
+	//MSFPacketQueue* GetPacketQueue();
 
 	void SocketWSACleanup();
 
 	PacketDispatcher();
 	~PacketDispatcher();
-
-	//Address (INADDR_ANY) any available IP for server
-	//(Address + port)'s server (for client)
-
-
-	/*
-	// De/Init Dispatcher	- 1 time > [Server and client] (ctor)
-	// --> WSAStartup, Create socket
-	//
-	// setup ip port
-	//
-	// Start Dispatcher		- 1 time >	Start Dispatcher Thread (Event signaling)
-	// ==> Server Thread
-	//	--> Bind
-	//	--> Listen for incoming connections
-	//	--> Accept clients' socket
-	//	--> Close
-	//
-	// ==> Client Thread
-	//	--> Connect to server
-	//	--> Send/Recv (n Times, until termination packet)
-	//	--> Close
-
-	// Stop Distpatcher		- 1 time >	Stop Dispatcher Thread (Event signaling)
-
-	// get; set; port		- 1 time
-	// get; set; ip			- 1 time
-	//
-	*/
 };
 
