@@ -33,6 +33,60 @@ unsigned char* MSFPacket::getBuffer()
 	return this->m_ucBuffer;
 }
 
+unsigned long MSFPacket::getSlaveId()
+{
+	return this->m_ulSlaveId;
+}
+
+const char* MSFPacket::PacketTypeToString()
+{
+	const char* retVal = nullptr;
+	switch (this->m_epacketType)
+	{
+	case EPACKET::PacketType::Acknowledge:
+	{
+		retVal = "Acknowledge";
+		break;
+	}
+	case EPACKET::PacketType::TaskPacket:
+	{
+		retVal = "Task";
+		break;
+	}
+	case EPACKET::PacketType::ResponsePacket:
+	{
+		retVal = "Response";
+		break;
+	}
+	default:
+	{
+		retVal = "Error";
+		break;
+	}
+	}
+	return retVal ? retVal : nullptr;
+}
+
+void MSFPacket::PrintPacket()
+{
+	EPACKET::PacketType packetType = this->m_epacketType;
+	unsigned long ulOpCode = this->m_ulOpCode;
+	unsigned long ulSlaveId = this->m_ulSlaveId;
+
+	unsigned char* pucBuffer = this->m_ucBuffer;
+
+	if (pucBuffer)
+	{
+		DEBUG_PRINT_CLS("\n\t>>Packet Type: %s |\n \
+						OpCode: %lu |\n \
+						SlaveId: %lu |\n \
+						Buffer: %s\n", \
+			PacketTypeToString(),
+			ulOpCode, ulSlaveId, pucBuffer);
+	}
+
+	
+}
 //-----------------Packet Dispatcher----------------------
 
 SOCKET PacketDispatcher::GetSocket()

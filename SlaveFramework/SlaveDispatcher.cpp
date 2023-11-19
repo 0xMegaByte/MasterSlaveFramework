@@ -2,8 +2,10 @@
 
 DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 {
+	DEBUG_PRINT_CLS("Entered thread\n");
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
+		DEBUG_PRINT_CLS("Thread running..\n");
 		//Checks if WSA's status
 		if (this->m_bWSA)
 		{
@@ -29,31 +31,37 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 							nResults = recv(slave_socket, cRecvBuf, sizeof(MSFPacket), 0);
 							if (nResults > 0)
 							{
-								printf("Bytes received: %d\n", nResults);
+								DEBUG_PRINT_CLS("Bytes received: %d\n", nResults);
+
 								//Handle recived bytes as MSFpacket
 								MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
 								if (pPacket)
 								{
-									DEBUG_PRINT("Packet data: %d | %lu | %s\n",
-										pPacket->getPacketType(), pPacket->getOpCode(),
-										pPacket->getBuffer());
 
-									if (pPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
+									pPacket->PrintPacket();
+
+									switch (pPacket->getPacketType())
 									{
+									case EPACKET::PacketType::Acknowledge:
+									{
+										MSFPacket* pACKPacket =
+											new MSFPacket(EPACKET::PacketType::ResponsePacket,
+												pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+												(unsigned char*)"<some_data>");
 
+										this->SecureQueuePushBack(pACKPacket);
+
+										DEBUG_PRINT_CLS("Pushed ACK packet to queue\n");
+
+										break;
 									}
+									case EPACKET::PacketType::TaskPacket:
+										break;
 
 
-										//Add response to Packet queue 
-										const char* pucBuffer = "<this-ip><port>";
-
-									MSFPacket* pRegisterConnection =
-										new MSFPacket(EPACKET::PacketType::ResponsePacket,
-											999,
-											EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
-											(unsigned char*)pucBuffer);
-
-									pPacketQueue->push_back(pRegisterConnection);
+									default:
+										break;
+									}
 								}
 							}
 							else if (nResults == 0)
@@ -78,6 +86,8 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 		}
 		//close?
 	}
+
+	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
 
@@ -89,7 +99,7 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 		{
 			SOCKET& slave_socket = this->m_socket;
 			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
-			
+
 			while (this->m_bStart)
 			{
 
@@ -103,12 +113,19 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 
 						if (pPacket)
 						{
+							DEBUG_PRINT_CLS("Sending packet:\n");
+							pPacket->PrintPacket();
+
 							char buffer[sizeof(pPacket)]{ 0 };
 							memcpy_s(buffer, sizeof(pPacket), pPacket, sizeof(pPacket));
 
-							send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
+							int nbytesSent = send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
+							if (nbytesSent == SOCKET_ERROR)
+							{
+								DEBUG_PRINT_CLS("Failed to send packet! WSA:%d\n", WSA_ERR);
+							}
 
-							pPacketQueue->pop_front();
+							this->SecureQueuePopFront();
 							DELETE_PTR(pPacket);
 						}
 					}
@@ -126,7 +143,7 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		addrinfo hints;
 
 		ZeroMemory(&hints, sizeof(addrinfo));
-		
+
 		hints.ai_family = AF_INET;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_protocol = IPPROTO_TCP;
@@ -136,7 +153,7 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		{
 			if (int res = getaddrinfo(pcIpAddress, "6969", &hints, &this->m_pservice) != 0)
 			{
-				DEBUG_PRINT("ERROR: gettaddrinfo code: %d | WSA: %d\n", res,WSA_ERR);
+				DEBUG_PRINT("ERROR: gettaddrinfo code: %d | WSA: %d\n", res, WSA_ERR);
 				this->SocketWSACleanup();
 			}
 
@@ -201,4 +218,23 @@ void SlaveDispatcher::Connect()
 bool SlaveDispatcher::IsDispatcherConnected()
 {
 	return this->m_bConnected;
+}
+
+void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
+{
+	this->m_PacketQueueLock.lock();
+	{
+		if (pPacket)
+			this->m_pPacketQueue->push_back(pPacket);
+	}
+	this->m_PacketQueueLock.unlock();
+}
+
+void SlaveDispatcher::SecureQueuePopFront()
+{
+	this->m_PacketQueueLock.lock();
+	{
+		this->m_pPacketQueue->pop_front();
+	}
+	this->m_PacketQueueLock.unlock();
 }

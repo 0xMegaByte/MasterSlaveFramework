@@ -16,7 +16,7 @@ namespace EPACKET {
 	namespace CMD {
 		// Communication setup packet
 		constexpr int MASTER_SLAVE_ACK_CONNECTION = 1000;
-			//constexpr int MASTER_SLAVE_DEINIT_CONNECTION = 1001;
+		//constexpr int MASTER_SLAVE_DEINIT_CONNECTION = 1001;
 		constexpr int SLAVE_MASTER_ACK_CONNECTION_RESPONSE = 1002; //response token?
 
 		// Tasks enum
@@ -31,6 +31,8 @@ namespace EPACKET {
 		constexpr int SLAVE_MASTER_OK_RESPONSE = 3000;
 	};
 }
+
+
 
 #define MSFPACKET_SIZE sizeof(MSFPacket)
 
@@ -51,6 +53,11 @@ public:
 	EPACKET::PacketType getPacketType();
 	unsigned long getOpCode();
 	unsigned char* getBuffer();
+	unsigned long getSlaveId();
+
+	const char* PacketTypeToString();
+
+	void PrintPacket();
 };
 
 typedef std::deque<MSFPacket*> MSFPacketQueue;

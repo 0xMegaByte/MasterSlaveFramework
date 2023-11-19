@@ -5,6 +5,7 @@ class SlaveDispatcher : public PacketDispatcher
 {
 private:
 	bool m_bConnected;
+	MSFPacketQueue* m_pPacketQueue;
 public:
 
 	DWORD WINAPI SendThread(LPVOID lpv);
@@ -14,7 +15,11 @@ public:
 	void Connect();
 	bool IsDispatcherConnected();
 
-	MSFPacketQueue* m_pPacketQueue;
+	
+	std::mutex m_PacketQueueLock;
+
+	void SecureQueuePopFront();
+	void SecureQueuePushBack(MSFPacket* pPacket);
 
 	SlaveDispatcher() : PacketDispatcher(), m_bConnected(false)
 	{

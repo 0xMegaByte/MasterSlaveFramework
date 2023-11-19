@@ -29,14 +29,6 @@ int main()
 				DEBUG_PRINT("Slave disptacher Started\n");
 			}
 
-
-			//Execute tasks
-
-			/*pSlave->PushTask(new Task(1001));
-			Task* pTask = pSlave->PopTask();
-			printf("Task Id: %lu", pTask->GetTaskId());*/
-
-			//Report tasks results
 			while (true)
 			{
 				//LOOP UNTIL TERMINATION for tests
