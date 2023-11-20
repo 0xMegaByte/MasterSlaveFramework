@@ -4,19 +4,27 @@
 class SlaveDispatcher : public PacketDispatcher
 {
 private:
-	bool m_bConnected = false;
+	bool m_bConnected;
+	MSFPacketQueue* m_pPacketQueue;
 public:
 
-	
-
-	DWORD WINAPI SendThread(LPVOID lpv) override;
-	DWORD WINAPI ReceiveThread(LPVOID lpv) override;
-	void SocketSetup(const char* pcIpAddress, const unsigned short usPort);
+	DWORD WINAPI SendThread(LPVOID lpv);
+	DWORD WINAPI ReceiveThread(LPVOID lpv);
+	void SocketSetup(const char* pcIpAddress, const unsigned short usPort) override;
 
 	void Connect();
 	bool IsDispatcherConnected();
 
-	SlaveDispatcher() : PacketDispatcher() {};
+	
+	std::mutex m_PacketQueueLock;
+
+	void SecureQueuePopFront();
+	void SecureQueuePushBack(MSFPacket* pPacket);
+
+	SlaveDispatcher() : PacketDispatcher(), m_bConnected(false)
+	{
+		this->m_pPacketQueue = new MSFPacketQueue();
+	};
 	~SlaveDispatcher() {};
 };
 

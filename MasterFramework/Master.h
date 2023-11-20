@@ -6,12 +6,12 @@
 class Master
 {
 private:
-	unsigned long m_ulTotalSlavesCount;
-	unsigned long m_ulCurrentConnections;
+	/*unsigned long m_ulTotalSlavesCount;*/
+	//unsigned long m_ulCurrentConnections;
 
 	MasterDispatcher* m_pDispatcher; //WithPacketQueue
-	void* m_hSendThread;
-	void* m_hReceiveThread;
+
+	void* m_hAcceptConnections;
 	
 public:
 
@@ -19,9 +19,6 @@ public:
 	void CreateDispatcher();
 	void DestroyDispatcher();
 	MasterDispatcher* GetDispatcher();
-
-	DWORD WINAPI ProcessSlave(LPVOID lpv); //will handle send/recv per socket(slave)
-	//instead of Send/RecveiveThread
 
 	Master();
 	~Master();

@@ -1,9 +1,6 @@
 #include "MasterDispatcher.h"
 
-//TODO: Delete. for test only
-SOCKET slave_socket = INVALID_SOCKET;
-
-DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
+/*DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 {
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
@@ -22,7 +19,7 @@ DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 
 				while (this->m_bStart) //Flag to terminate this thread
 				{
-					
+
 
 					//delay?
 
@@ -34,7 +31,7 @@ DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 
 							MSFPacket* pPacket = pPacketQueue->front();
 
-							
+
 
 
 
@@ -42,10 +39,10 @@ DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 
 							memcpy_s(buffer, sizeof(MSFPacket), pPacket, sizeof(MSFPacket));
 
-							//TODO: make the packet sendong size dynamic. 
+							//TODO: make the packet sendong size dynamic.
 							// no need to send the whole empty bytes in the param.
 							//send(slave_socket, (const char*)packet, sizeof(packet), 0);
-							
+
 
 
 
@@ -57,39 +54,6 @@ DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 							pPacketQueue->pop_front();// commented for test
 						}
 					}
-
-					////Check if any recv response buffer
-
-
-					/*int nResults, nSendResults;
-					char cRecvBuf[BUF_LEN]{ 0 };
-
-					nResults = nSendResults = 0;
-
-					do
-					{
-						nResults = recv(slave_socket, cRecvBuf, BUF_LEN, 0);
-
-						if (nResults > 0)
-						{
-							int i = 1;
-							++i;
-							//printf("Bytes received: %d\n", iResult);
-							//Handle recived bytes as MSFpacket
-							//Report to DB packets response using the MSFpacket data
-						}
-						else if (nResults == 0)
-						{
-							//printf("Connection closing...\n");
-						}
-						else
-						{
-							//fail
-							//printf("%d", WSA_ERR);
-						}
-
-					} while (nResults > 0);
-					*/
 				}
 			}
 		}
@@ -98,9 +62,9 @@ DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
 	}
 	DEBUG_PRINT("Thread existed\n");
 	return 0;
-}
+}*/
 
-DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
+/*DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
 {
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
@@ -114,11 +78,6 @@ DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
 
 			nResults = nSendResults = 0;
 
-			//TODO: iterate slaves' sockets
-			while (slave_socket == INVALID_SOCKET)
-			{
-				//TODO: Test only, waits for slave_socket to be valid
-			}
 			do
 			{
 				nResults = recv(slave_socket, cRecvBuf, BUF_LEN, 0);
@@ -146,47 +105,158 @@ DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
 	}
 	DEBUG_PRINT("Thread Exited\n");
 	return 0;
-}
+}*/
 
-struct ProcessSlaveStruct
+DWORD __stdcall ProcessSlave(LPVOID lpv)
 {
-	MasterDispatcher* pmd;
-	SOCKET socket;
-};
+	DEBUG_PRINT("Thread running...\n");
+	Connection* pConnection = new Connection(*static_cast<Connection*>(lpv));
 
-DWORD WINAPI ProcessSlaveWrapper(LPVOID lpv)
-{
-	ProcessSlaveStruct* pss = static_cast<ProcessSlaveStruct*>(lpv);
-	if (pss)
+	bool bPacketSent = false;
+
+	if (pConnection)
 	{
-		MasterDispatcher* pmd = pss->pmd;
-		if (pmd)
+		DEBUG_PRINT("Connection's details converted\n");
+		unsigned long ulSlaveId = pConnection->m_ulSlaveId;
+
+		bool bStart = pConnection->m_bStart;
+
+		MSFPacketQueue* pPacketQueue = pConnection->m_pSlavePacketQueue;
+
+		if (pPacketQueue)
 		{
-			pmd->ProcessSlave((LPVOID)pss->socket);
+			SOCKET SlaveSocket = pConnection->m_socket;
+
+			if (SlaveSocket)
+			{
+				int nbytesSent;
+				int nbytesRecv = SOCKET_ERROR;
+				char sendBuf[MSFPACKET_SIZE]{ 0 };
+				char recvBuf[MSFPACKET_SIZE]{ 0 };
+
+				bool bPacketSent = false;
+
+#pragma region One-time ACK packet
+
+				if (!pPacketQueue->empty())
+				{
+					MSFPacket* pAckPacket = pPacketQueue->front();
+
+					if (pAckPacket)
+					{
+						//check if Ack type
+						if (pAckPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
+						{
+							DEBUG_PRINT("Sending ACK Packet to slave\n");
+							
+							pAckPacket->PrintPacket();
+
+							char cAckPacketBuffer[MSFPACKET_SIZE]{ 0 };
+							memcpy_s(cAckPacketBuffer, MSFPACKET_SIZE, pAckPacket, MSFPACKET_SIZE);
+
+							nbytesSent = send(SlaveSocket, cAckPacketBuffer, MSFPACKET_SIZE, 0);
+							if (nbytesSent == SOCKET_ERROR)
+							{
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+							}
+
+							DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
+							bPacketSent = true;
+						}
+
+						//pop it from queue
+						pPacketQueue->pop_front();
+						//delete it from mem
+						DELETE_PTR(pAckPacket);
+					}
+				}
+#pragma endregion
+				
+				while (bStart)
+				{
+					//Handle Packet Queue send commands
+					if (!pPacketQueue->empty())
+					{
+						MSFPacket* pPacket = pPacketQueue->front();
+						if (pPacket)
+						{
+							char cPacketBuffer[MSFPACKET_SIZE]{ 0 };
+							memcpy_s(cPacketBuffer, MSFPACKET_SIZE, pPacket, MSFPACKET_SIZE);
+
+							nbytesSent = send(SlaveSocket, cPacketBuffer, MSFPACKET_SIZE, 0);
+							if (nbytesSent == SOCKET_ERROR)
+							{
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+							}
+							else
+							{
+								bPacketSent = true;
+							}
+						}
+
+						pPacketQueue->pop_front();
+						DELETE_PTR(pPacket);
+					}
+
+
+					if (bPacketSent)
+					{
+						DEBUG_PRINT("Waiting for slave reponse..\n");
+
+						//Handle Recv after sending
+						nbytesRecv = recv(SlaveSocket, recvBuf, MSFPACKET_SIZE, 0);
+						if (nbytesRecv > 0)
+						{
+							DEBUG_PRINT("Bytes received: %d\n", nbytesRecv);
+
+							MSFPacket* pPacket = (MSFPacket*)recvBuf;
+							if (pPacket)
+							{
+								pPacket->PrintPacket();
+
+								//switch
+							}
+
+							//Handle recived bytes as MSFpacket
+							//Report to DB packets response using the MSFpacket data
+						}
+						else if (nbytesRecv == 0)
+						{
+							DEBUG_PRINT("Connection with slave(%lu) closing...\n", ulSlaveId);
+						}
+						else
+						{
+							//fail
+							DEBUG_PRINT("Recv() failed. [WSA:%d]\n", WSA_ERR);
+						}
+
+						bPacketSent = false;
+					}
+				}
+			}
 		}
 	}
 
-
+	DEBUG_PRINT("Existing Thread...\n");
 	return 0;
 }
 
 DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 {
+	DEBUG_PRINT_CLS("Entered Thread...\n");
+
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
+		DEBUG_PRINT_CLS("Thread Running!\n");
 		if (this->m_bWSA)
 		{
-			//Gets an empty vector of SOCKET type
-			//Use tempSOCKET to wait on an incoming connection
-			//When tempSOCKET is a valid socket
-			//Copy ctor it to the vector
-			//Reset the tempSocket (assign INVALID_SOCKET)
-			//Repeat
-
 			SOCKET& master_socket = this->m_socket;
 			SOCKET tempSocket = INVALID_SOCKET;
+
 			while (this->m_bStart)
 			{
+				//Run until connection accepted
+				DEBUG_PRINT_CLS("Ready to accept incoming sockets..\n");
 				do
 				{
 					tempSocket = accept(master_socket, 0, 0);
@@ -194,49 +264,94 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 				} while (tempSocket == INVALID_SOCKET);
 
 				//Connection accepted
-				DEBUG_PRINT("Master socket accepted slave socket successfully.\n");
-				//Create thead with
+				DEBUG_PRINT_CLS("Master socket accepted slave socket successfully.\n");
 
-				DWORD dwThreadId = 0;
+				//Create new slave's packet queue
+				MSFPacketQueue* pNewConnectionPQ = new MSFPacketQueue();
 
-				ProcessSlaveStruct pss{ this,tempSocket };
+				if (pNewConnectionPQ)
+				{
+					this->IncrementTotalSlaveCount(); //Started with 0
 
-				CreateThread(0, 0, ProcessSlaveWrapper, &pss, 0, &dwThreadId);
+					unsigned long ulSlaveId = this->GetTotalSlaveCount();
+
+					//Issue new connection info
+					Connection NewConnection
+					{
+						ulSlaveId, //Assign SlaveId
+						tempSocket,
+						pNewConnectionPQ,
+						this->m_bStart
+					};
+
+					HANDLE hNewConnection = INVALID_HANDLE_VALUE;
+					hNewConnection = CreateThread(0, 0, ProcessSlave, &NewConnection, CREATE_SUSPENDED,0);
+
+					if (hNewConnection)
+					{
+						DEBUG_PRINT_CLS("New 'ProcessSlave' thread created\n");
+
+						this->AddSlaveThreadHandle(ulSlaveId, hNewConnection);
+						DEBUG_PRINT_CLS("Registered new thread handle\n");
+
+						this->AddConnection(NewConnection);
+						DEBUG_PRINT_CLS("Registered new connection object\n");
+
+						MSFPacket* pAckPacket = new MSFPacket(
+							EPACKET::PacketType::Acknowledge,
+							ulSlaveId,
+							EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
+							(unsigned char*)"");
+
+						pNewConnectionPQ->push_back(pAckPacket); //TOOD:Lock unlock
+						DEBUG_PRINT_CLS("Added ACK packet to slave's packet queue\n");
+						ResumeThread(hNewConnection);
+					}
+					
+					pNewConnectionPQ = nullptr;
+				}
 
 				tempSocket = INVALID_SOCKET;
-				
-
-				
-
-				//
-
 			}
 		}
 	}
 
+	DEBUG_PRINT_CLS("Existing Thread...\n");
 	return 0;
 }
 
-DWORD __stdcall MasterDispatcher::ProcessSlave(LPVOID lpv)
+void MasterDispatcher::AddConnection(Connection connection)
 {
-	SOCKET SlaveSocket = (SOCKET)lpv;
+	this->m_ConnectionsLock.lock();
+	this->m_vConnections.push_back(connection);
+	this->m_ConnectionsLock.unlock();
+}
 
-	if (SlaveSocket)
-	{
-		int nbytesSent;
-		int nbytesRecv = SOCKET_ERROR;
-		char sendBuf[BUF_LEN];
-		char recvBuf[BUF_LEN];
+void MasterDispatcher::AddSlaveThreadHandle(unsigned long ulSlaveId, void* hSlaveThread)
+{
+	this->m_SlaveThreadHandlesLock.lock();
+	this->m_umSlaveThreadHandles.insert({ ulSlaveId,hSlaveThread });
+	this->m_SlaveThreadHandlesLock.unlock();
+}
 
-		//Send init packet
+void MasterDispatcher::IncrementTotalSlaveCount()
+{
+	this->m_SlaveCountLock.lock();
+	++this->m_ulTotalSlavesCount;
+	this->m_SlaveCountLock.unlock();
 
-		while (this->m_bStart)
-		{
+}
 
-		}
-	}
+void MasterDispatcher::DecrementTotalSlaveCount()
+{
+	this->m_SlaveCountLock.lock();
+	--this->m_ulTotalSlavesCount;
+	this->m_SlaveCountLock.unlock();
+}
 
-	return 0;
+unsigned long MasterDispatcher::GetTotalSlaveCount()
+{
+	return this->m_ulTotalSlavesCount;
 }
 
 void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
@@ -286,7 +401,7 @@ void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short
 				if (nRes == SOCKET_ERROR)
 				{
 					//fail
-					DEBUG_PRINT("bind() failed! WSA:%d\n", WSA_ERR);
+					DEBUG_PRINT("bind() failed! [WSA:%d]\n", WSA_ERR);
 					closesocket(this->m_socket);
 					this->m_socket = INVALID_SOCKET;
 					this->SocketWSACleanup();

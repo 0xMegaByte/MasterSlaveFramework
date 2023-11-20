@@ -27,15 +27,8 @@ int main()
 
 			//Create packets out of command or any interface
 			//pMaster->CreatePacket()->QueuePush()
-			MSFPacket* pPacket = new MSFPacket(EPACKET::TYPE::MSF_TASK_PACKET, 1, EPACKET::CMD::TASK::TASK_BEEP, (unsigned char*)"Test");
-			MSFPacketQueue* ppq = pmd->GetPacketQueue();
+			//MSFPacket* pPacket = new MSFPacket(EPACKET::PacketType::TaskPacket, 1, EPACKET::CMD::TASK_BEEP, (unsigned char*)"Test");
 
-			if (ppq)
-			{
-				ppq->push_back(pPacket);
-				//Check Dispatcher Thread to handle the new packet
-
-			}
 
 			//TODO: USE DATABASE TO STORE WHICH SLAVE HAS WHAT IP
 
@@ -45,7 +38,7 @@ int main()
 				//LOOP UNTIL TERMINATION
 			}
 
-			//DELETE_PTR(pmd);
+			DELETE_PTR(pmd);
 		}
 	}
 

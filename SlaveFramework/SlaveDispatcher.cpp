@@ -2,14 +2,16 @@
 
 DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 {
+	DEBUG_PRINT_CLS("Entered thread\n");
+
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
-		//Checks if WSA's status
+		DEBUG_PRINT_CLS("Thread running..\n");
+
 		if (this->m_bWSA)
 		{
 			//Ref. to the socket for better understanding
-			SOCKET& slave_socket = this->m_socket;
-
+			SOCKET& _socket = this->m_socket;
 			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
 
 			if (pPacketQueue)
@@ -26,34 +28,41 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 
 						do
 						{
-							nResults = recv(slave_socket, cRecvBuf, sizeof(MSFPacket), 0);
+							nResults = recv(_socket, cRecvBuf, sizeof(MSFPacket), 0);
 							if (nResults > 0)
 							{
-								printf("Bytes received: %d\n", nResults);
+								DEBUG_PRINT_CLS("Bytes received: %d\n", nResults);
+
 								//Handle recived bytes as MSFpacket
-								MSFPacket* Packet = (MSFPacket*)cRecvBuf;
+								MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
+								if (pPacket)
+								{
+									pPacket->PrintPacket();
 
-								DEBUG_PRINT("Packet data: %d | %lu | %s\n",
-									Packet->getPacketType(), Packet->getOpCode(),
-									Packet->getBuffer());
+									switch (pPacket->getPacketType())
+									{
+									case EPACKET::PacketType::Acknowledge:
+									{
+										const char* buf = "<some_data>";
 
-								//->ParsePacket() -> CreateTask
+										MSFPacket* pACKPacket =
+											new MSFPacket(EPACKET::PacketType::ResponsePacket,
+												pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+												(unsigned char*)buf);
 
-								//Create task using the MSFpacket data
-								//Add task to Taskqueue
+										this->SecureQueuePushBack(pACKPacket);
 
-								//Add response to Packet queue 
-								const char* pucBuffer = "<this-ip><port>";
+										DEBUG_PRINT_CLS("Pushed ACK packet to queue\n");
 
-								MSFPacket* pRegisterConnection =
-									new MSFPacket(EPACKET::TYPE::MSF_RESP_PACKET,
-										999,
-										EPACKET::RESP::CODE::SLAVE_MASTER_OK_RESPONSE,
-										(unsigned char*)pucBuffer);
+										break;
+									}
+									case EPACKET::PacketType::TaskPacket:
+										break;
 
-								pPacketQueue->push_back(pRegisterConnection);
-
-							
+									default:
+										break;
+									}
+								}
 							}
 							else if (nResults == 0)
 							{
@@ -77,22 +86,27 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 		}
 		//close?
 	}
+
+	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
 
 DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 {
+	DEBUG_PRINT_CLS("Entered thread\n");
+
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
+		DEBUG_PRINT_CLS("Thread running..\n");
+
 		if (this->m_bWSA)
 		{
 			SOCKET& slave_socket = this->m_socket;
 			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
-			
-			while (this->m_bStart)
-			{
 
-				if (pPacketQueue)
+			if (pPacketQueue)
+			{
+				while (this->m_bStart)
 				{
 					if (!pPacketQueue->empty())
 					{
@@ -102,12 +116,20 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 
 						if (pPacket)
 						{
-							char buffer[sizeof(pPacket)]{ 0 };
-							memcpy_s(buffer, sizeof(pPacket), pPacket, sizeof(pPacket));
+							DEBUG_PRINT_CLS("Sending packet:\n");
 
-							send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
+							pPacket->PrintPacket();
 
-							pPacketQueue->pop_front();
+							char cPacketBuffer[MSFPACKET_SIZE]{ 0 };
+							memcpy_s(cPacketBuffer, MSFPACKET_SIZE, pPacket, MSFPACKET_SIZE);
+
+							int nbytesSent = send(slave_socket, cPacketBuffer, MSFPACKET_SIZE, 0);
+							if (nbytesSent == SOCKET_ERROR)
+							{
+								DEBUG_PRINT_CLS("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+							}
+
+							this->SecureQueuePopFront();
 							DELETE_PTR(pPacket);
 						}
 					}
@@ -115,6 +137,7 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 			}
 		}
 	}
+	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
 
@@ -125,7 +148,7 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		addrinfo hints;
 
 		ZeroMemory(&hints, sizeof(addrinfo));
-		
+
 		hints.ai_family = AF_INET;
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_protocol = IPPROTO_TCP;
@@ -135,7 +158,7 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		{
 			if (int res = getaddrinfo(pcIpAddress, "6969", &hints, &this->m_pservice) != 0)
 			{
-				DEBUG_PRINT("ERROR: gettaddrinfo code: %d | WSA: %d\n", res,WSA_ERR);
+				DEBUG_PRINT("ERROR: gettaddrinfo code: %d | WSA: %d\n", res, WSA_ERR);
 				this->SocketWSACleanup();
 			}
 
@@ -169,35 +192,69 @@ void SlaveDispatcher::Connect()
 	if (this->m_bWSA)
 	{
 		int nConnectRes = SOCKET_ERROR;
+		int nRetriesLeft = 10;
+		int nRetriesCount = 0;
 
 		SOCKET& slave_socket = this->m_socket;
 
-		if (nConnectRes = connect(slave_socket, this->m_pservice->ai_addr, (int)this->m_pservice->ai_addrlen) == SOCKET_ERROR)
+		do
 		{
-			//Failed - print error and exit/retry X times ->destory dispatcher outside the thread
-			DEBUG_PRINT("connect() failed! WSA:%d\n", WSA_ERR);
-			closesocket(slave_socket);
-			this->m_socket = INVALID_SOCKET;
-			//TODO: BUG: WHEN FAILED, THE SOFTWARE CONTINUES TO RUN
-		}
+			nConnectRes =
+				connect(slave_socket, this->m_pservice->ai_addr, (int)this->m_pservice->ai_addrlen);
 
-		//this->service can be freed
+			if (nConnectRes == SOCKET_ERROR)
+			{
+				DEBUG_PRINT_CLS("Failed to connect to server! [WSA:%d]\n", WSA_ERR);
 
-		if (slave_socket == INVALID_SOCKET)
-		{
-			DEBUG_PRINT("Unable to connect to server!\n");
-			this->SocketWSACleanup();
+				nRetriesCount++;
 
-		}
-		else
-		{
-			DEBUG_PRINT("Connected to server!\n");
-			this->m_bConnected = true;
-		}
+				if (nRetriesCount == nRetriesLeft)
+				{
+					DEBUG_PRINT_CLS("Retries exhausted! connect() failed: [WSA:%d]\n", WSA_ERR);
+					closesocket(slave_socket);
+					if (this->m_socket == INVALID_SOCKET)
+					{
+						this->m_socket = INVALID_SOCKET;
+						SocketWSACleanup();
+					}
+					break;
+				}
+				else
+				{
+					DEBUG_PRINT_CLS("Retrying to connect again.. (%d/%d)\n\n",
+						nRetriesCount, nRetriesLeft);
+				}
+			}
+			else if (nConnectRes == 0 && slave_socket != INVALID_SOCKET)
+			{
+				DEBUG_PRINT("Connected to server!\n");
+				this->m_bConnected = true;
+				break;
+			}
+		} while (!this->m_bConnected);
 	}
 }
 
 bool SlaveDispatcher::IsDispatcherConnected()
 {
 	return this->m_bConnected;
+}
+
+void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
+{
+	this->m_PacketQueueLock.lock();
+	{
+		if (pPacket)
+			this->m_pPacketQueue->push_back(pPacket);
+	}
+	this->m_PacketQueueLock.unlock();
+}
+
+void SlaveDispatcher::SecureQueuePopFront()
+{
+	this->m_PacketQueueLock.lock();
+	{
+		this->m_pPacketQueue->pop_front();
+	}
+	this->m_PacketQueueLock.unlock();
 }
