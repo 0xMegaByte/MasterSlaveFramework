@@ -134,18 +134,10 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 				char sendBuf[MSFPACKET_SIZE]{ 0 };
 				char recvBuf[MSFPACKET_SIZE]{ 0 };
 
-				/*timeval tvSocketBlocking
-				{
-					tvSocketBlocking.tv_sec = 0l,
-					tvSocketBlocking.tv_usec = 500l
-				};*/
+				bool bPacketSent = false;
 
-				//setsockopt(SlaveSocket, SOL_SOCKET, SO_SNDTIMEO, (const char*)&tvSocketBlocking, sizeof(tvSocketBlocking));
-				//setsockopt(SlaveSocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tvSocketBlocking, sizeof(tvSocketBlocking));
+#pragma region One-time ACK packet
 
-				//Send init packet
-
-				//Get front packet
 				if (!pPacketQueue->empty())
 				{
 					MSFPacket* pAckPacket = pPacketQueue->front();
@@ -156,17 +148,20 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						if (pAckPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
 						{
 							DEBUG_PRINT("Sending ACK Packet to slave\n");
-							//send it
+							
+							pAckPacket->PrintPacket();
+
 							char cAckPacketBuffer[MSFPACKET_SIZE]{ 0 };
 							memcpy_s(cAckPacketBuffer, MSFPACKET_SIZE, pAckPacket, MSFPACKET_SIZE);
 
 							nbytesSent = send(SlaveSocket, cAckPacketBuffer, MSFPACKET_SIZE, 0);
 							if (nbytesSent == SOCKET_ERROR)
 							{
-								DEBUG_PRINT("Failed to send packet! WSA:%d\n", WSA_ERR);
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
 							}
 
 							DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
+							bPacketSent = true;
 						}
 
 						//pop it from queue
@@ -175,7 +170,8 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						DELETE_PTR(pAckPacket);
 					}
 				}
-
+#pragma endregion
+				
 				while (bStart)
 				{
 					//Handle Packet Queue send commands
@@ -190,19 +186,37 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 							nbytesSent = send(SlaveSocket, cPacketBuffer, MSFPACKET_SIZE, 0);
 							if (nbytesSent == SOCKET_ERROR)
 							{
-								DEBUG_PRINT("Failed to send packet! WSA:%d\n", WSA_ERR);
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+							}
+							else
+							{
+								bPacketSent = true;
 							}
 						}
+
 						pPacketQueue->pop_front();
 						DELETE_PTR(pPacket);
+					}
 
+
+					if (bPacketSent)
+					{
 						DEBUG_PRINT("Waiting for slave reponse..\n");
 
 						//Handle Recv after sending
 						nbytesRecv = recv(SlaveSocket, recvBuf, MSFPACKET_SIZE, 0);
 						if (nbytesRecv > 0)
 						{
-							DEBUG_PRINT("Slave(%lu) responded with <%d> Bytes\n", ulSlaveId, nbytesRecv);
+							DEBUG_PRINT("Bytes received: %d\n", nbytesRecv);
+
+							MSFPacket* pPacket = (MSFPacket*)recvBuf;
+							if (pPacket)
+							{
+								pPacket->PrintPacket();
+
+								//switch
+							}
+
 							//Handle recived bytes as MSFpacket
 							//Report to DB packets response using the MSFpacket data
 						}
@@ -213,11 +227,11 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						else
 						{
 							//fail
-							DEBUG_PRINT("Recv() failed. WSA:%d\n", WSA_ERR);
+							DEBUG_PRINT("Recv() failed. [WSA:%d]\n", WSA_ERR);
 						}
-					}
 
-					
+						bPacketSent = false;
+					}
 				}
 			}
 		}
@@ -242,7 +256,7 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 			while (this->m_bStart)
 			{
 				//Run until connection accepted
-				DEBUG_PRINT_CLS("Waiting for a new slave socket..\n");
+				DEBUG_PRINT_CLS("Ready to accept incoming sockets..\n");
 				do
 				{
 					tempSocket = accept(master_socket, 0, 0);
@@ -289,7 +303,7 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 							EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
 							(unsigned char*)"");
 
-						pNewConnectionPQ->push_back(pAckPacket);
+						pNewConnectionPQ->push_back(pAckPacket); //TOOD:Lock unlock
 						DEBUG_PRINT_CLS("Added ACK packet to slave's packet queue\n");
 						ResumeThread(hNewConnection);
 					}
@@ -387,7 +401,7 @@ void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short
 				if (nRes == SOCKET_ERROR)
 				{
 					//fail
-					DEBUG_PRINT("bind() failed! WSA:%d\n", WSA_ERR);
+					DEBUG_PRINT("bind() failed! [WSA:%d]\n", WSA_ERR);
 					closesocket(this->m_socket);
 					this->m_socket = INVALID_SOCKET;
 					this->SocketWSACleanup();

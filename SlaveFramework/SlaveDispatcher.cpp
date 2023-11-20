@@ -3,15 +3,15 @@
 DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 {
 	DEBUG_PRINT_CLS("Entered thread\n");
+
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
 		DEBUG_PRINT_CLS("Thread running..\n");
-		//Checks if WSA's status
+
 		if (this->m_bWSA)
 		{
 			//Ref. to the socket for better understanding
-			SOCKET& slave_socket = this->m_socket;
-
+			SOCKET& _socket = this->m_socket;
 			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
 
 			if (pPacketQueue)
@@ -28,7 +28,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 
 						do
 						{
-							nResults = recv(slave_socket, cRecvBuf, sizeof(MSFPacket), 0);
+							nResults = recv(_socket, cRecvBuf, sizeof(MSFPacket), 0);
 							if (nResults > 0)
 							{
 								DEBUG_PRINT_CLS("Bytes received: %d\n", nResults);
@@ -37,17 +37,18 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 								MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
 								if (pPacket)
 								{
-
 									pPacket->PrintPacket();
 
 									switch (pPacket->getPacketType())
 									{
 									case EPACKET::PacketType::Acknowledge:
 									{
+										const char* buf = "<some_data>";
+
 										MSFPacket* pACKPacket =
 											new MSFPacket(EPACKET::PacketType::ResponsePacket,
 												pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
-												(unsigned char*)"<some_data>");
+												(unsigned char*)buf);
 
 										this->SecureQueuePushBack(pACKPacket);
 
@@ -57,7 +58,6 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 									}
 									case EPACKET::PacketType::TaskPacket:
 										break;
-
 
 									default:
 										break;
@@ -93,17 +93,20 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 
 DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 {
+	DEBUG_PRINT_CLS("Entered thread\n");
+
 	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 	{
+		DEBUG_PRINT_CLS("Thread running..\n");
+
 		if (this->m_bWSA)
 		{
 			SOCKET& slave_socket = this->m_socket;
 			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
 
-			while (this->m_bStart)
+			if (pPacketQueue)
 			{
-
-				if (pPacketQueue)
+				while (this->m_bStart)
 				{
 					if (!pPacketQueue->empty())
 					{
@@ -114,15 +117,16 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 						if (pPacket)
 						{
 							DEBUG_PRINT_CLS("Sending packet:\n");
+
 							pPacket->PrintPacket();
 
-							char buffer[sizeof(pPacket)]{ 0 };
-							memcpy_s(buffer, sizeof(pPacket), pPacket, sizeof(pPacket));
+							char cPacketBuffer[MSFPACKET_SIZE]{ 0 };
+							memcpy_s(cPacketBuffer, MSFPACKET_SIZE, pPacket, MSFPACKET_SIZE);
 
-							int nbytesSent = send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
+							int nbytesSent = send(slave_socket, cPacketBuffer, MSFPACKET_SIZE, 0);
 							if (nbytesSent == SOCKET_ERROR)
 							{
-								DEBUG_PRINT_CLS("Failed to send packet! WSA:%d\n", WSA_ERR);
+								DEBUG_PRINT_CLS("Failed to send packet! [WSA:%d]\n", WSA_ERR);
 							}
 
 							this->SecureQueuePopFront();
@@ -133,6 +137,7 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 			}
 		}
 	}
+	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
 
@@ -187,31 +192,46 @@ void SlaveDispatcher::Connect()
 	if (this->m_bWSA)
 	{
 		int nConnectRes = SOCKET_ERROR;
+		int nRetriesLeft = 10;
+		int nRetriesCount = 0;
 
 		SOCKET& slave_socket = this->m_socket;
 
-		if (nConnectRes = connect(slave_socket, this->m_pservice->ai_addr, (int)this->m_pservice->ai_addrlen) == SOCKET_ERROR)
+		do
 		{
-			//Failed - print error and exit/retry X times ->destory dispatcher outside the thread
-			DEBUG_PRINT("connect() failed! WSA:%d\n", WSA_ERR);
-			closesocket(slave_socket);
-			this->m_socket = INVALID_SOCKET;
-			//TODO: BUG: WHEN FAILED, THE SOFTWARE CONTINUES TO RUN
-		}
+			nConnectRes =
+				connect(slave_socket, this->m_pservice->ai_addr, (int)this->m_pservice->ai_addrlen);
 
-		//this->service can be freed
+			if (nConnectRes == SOCKET_ERROR)
+			{
+				DEBUG_PRINT_CLS("Failed to connect to server! [WSA:%d]\n", WSA_ERR);
 
-		if (slave_socket == INVALID_SOCKET)
-		{
-			DEBUG_PRINT("Unable to connect to server!\n");
-			this->SocketWSACleanup();
+				nRetriesCount++;
 
-		}
-		else
-		{
-			DEBUG_PRINT("Connected to server!\n");
-			this->m_bConnected = true;
-		}
+				if (nRetriesCount == nRetriesLeft)
+				{
+					DEBUG_PRINT_CLS("Retries exhausted! connect() failed: [WSA:%d]\n", WSA_ERR);
+					closesocket(slave_socket);
+					if (this->m_socket == INVALID_SOCKET)
+					{
+						this->m_socket = INVALID_SOCKET;
+						SocketWSACleanup();
+					}
+					break;
+				}
+				else
+				{
+					DEBUG_PRINT_CLS("Retrying to connect again.. (%d/%d)\n\n",
+						nRetriesCount, nRetriesLeft);
+				}
+			}
+			else if (nConnectRes == 0 && slave_socket != INVALID_SOCKET)
+			{
+				DEBUG_PRINT("Connected to server!\n");
+				this->m_bConnected = true;
+				break;
+			}
+		} while (!this->m_bConnected);
 	}
 }
 

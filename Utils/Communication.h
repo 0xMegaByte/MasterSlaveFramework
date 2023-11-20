@@ -34,7 +34,7 @@ namespace EPACKET {
 
 
 
-#define MSFPACKET_SIZE sizeof(MSFPacket)
+#define MSFPACKET_SIZE sizeof(MSFPacket) //524ui64
 
 class MSFPacket						//Not socket but part of the socket
 {
@@ -43,7 +43,7 @@ private:
 	unsigned long m_ulOpCode;			//Task or Response
 	unsigned long m_ulSlaveId;			//Slave Id recv/send
 
-	unsigned char m_ucBuffer[BUF_LEN]{ 0 }; //Params
+	unsigned char m_ucBuffer[BUF_LEN]; //Params
 
 public:
 	MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,

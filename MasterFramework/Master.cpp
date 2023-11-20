@@ -38,7 +38,7 @@ void Master::CreateDispatcher()
 	{
 		this->m_hAcceptConnections = CreateThread(0, 0, AcceptConnectionsThreadWrapper, this->m_pDispatcher, 0, 0);
 		if (this->m_hAcceptConnections)
-			DEBUG_PRINT_CLS("Thread created (Handle @%p)\n",this->m_hAcceptConnections);
+			DEBUG_PRINT_CLS("Thread created (Handle @0x%p)\n",this->m_hAcceptConnections);
 	}
 
 	DEBUG_PRINT("Completed\n");

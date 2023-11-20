@@ -8,7 +8,9 @@ MSFPacket::MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,
 	this->m_ulSlaveId = ulSlaveId;
 	this->m_ulOpCode = ulOpCode;
 
-	memcpy_s(this->m_ucBuffer, BUF_LEN, pucBuffer, sizeof(pucBuffer));
+	ZeroMemory(this->m_ucBuffer, BUF_LEN);
+
+	memcpy_s(this->m_ucBuffer, BUF_LEN, pucBuffer, strnlen_s((const char*)pucBuffer,BUF_LEN));
 
 	DEBUG_PRINT_CLS("Completed\n");
 }
@@ -77,15 +79,11 @@ void MSFPacket::PrintPacket()
 
 	if (pucBuffer)
 	{
-		DEBUG_PRINT_CLS("\n\t>>Packet Type: %s |\n \
-						OpCode: %lu |\n \
-						SlaveId: %lu |\n \
-						Buffer: %s\n", \
-			PacketTypeToString(),
-			ulOpCode, ulSlaveId, pucBuffer);
+		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %lu | SlaveId: %lu | Buffer: %s\n",
+			PacketTypeToString(), ulOpCode, ulSlaveId, pucBuffer);
 	}
 
-	
+
 }
 //-----------------Packet Dispatcher----------------------
 
@@ -110,7 +108,7 @@ void PacketDispatcher::SocketWSACleanup()
 		}
 		else
 			DEBUG_PRINT_CLS("Failed\n");
-	}	
+	}
 }
 
 void PacketDispatcher::Initialize()
