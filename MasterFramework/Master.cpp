@@ -1,4 +1,4 @@
-#include "Master.h"
+﻿#include "Master.h"
 
 Master::Master() :
 	m_pDispatcher(nullptr), m_hAcceptConnections(INVALID_HANDLE_VALUE)

@@ -2,6 +2,7 @@
 #include <deque>
 #include <unordered_map>
 #include <mutex>
+#include <windows.h>
 
 #define DELETE_PTR(ptr) if(ptr){decltype(ptr) tmptr = ptr; ptr = nullptr; delete tmptr;}
 #define BUF_LEN 512 //(0x200)
@@ -25,3 +26,5 @@
 #ifndef DEBUG_PRINT_CLS
 #define DEBUG_PRINT_CLS(format, ...) printf("[%s:<%s::%s>]: " format, __FILENAME__,typeid(*this).name(), __func__, ##__VA_ARGS__)
 #endif // DEBUG_PRINT_CLS
+
+void PrintWelcomeMessage();

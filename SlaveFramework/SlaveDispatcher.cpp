@@ -57,8 +57,10 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 										break;
 									}
 									case EPACKET::PacketType::TaskPacket:
+									{
 										break;
 
+									}
 									default:
 										break;
 									}

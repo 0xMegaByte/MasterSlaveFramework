@@ -6,6 +6,7 @@
 
 int main()
 {
+	PrintWelcomeMessage();
 	//Create slave
 	Slave* pSlave = new Slave(1);
 
@@ -25,8 +26,6 @@ int main()
 			if (psd->IsDispatcherConnected())
 			{
 				psd->Start();
-
-				DEBUG_PRINT("Slave disptacher Started\n");
 			}
 
 			while (true)

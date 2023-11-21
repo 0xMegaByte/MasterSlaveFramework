@@ -8,13 +8,14 @@
 class Slave
 {
 private:
-	unsigned long m_ulSlaveId;
-	TaskQueue* m_pTaskQueue;
-	std::mutex m_TaskQueueMutex;
-
-	SlaveDispatcher* m_pDispatcher;
 	void* m_hSendThread;
 	void* m_hReceiveThread;
+
+	unsigned long m_ulSlaveId;
+
+	TaskExecutor* m_pTaskExectutor;
+	SlaveDispatcher* m_pDispatcher;
+
 public:
 	Slave(unsigned long ulSlaveId);
 	~Slave();
@@ -24,15 +25,9 @@ public:
 	void DestroyDispatcher();
 	SlaveDispatcher* GetDispatcher();
 
-	//Handle TaskQueue
-	void CreateTaskQueue();
-	void DestoyTaskQueue();
-
-	void EmptyTaskQueue();
-	void PushTask(Task* pTask); //Back
-	Task* PopTask(); //Front
+	//Handle TaskExecutor
+	TaskExecutor* GetTaskExecutor();
 
 	//Utils
 	unsigned long GetSlaveId();
 };
-

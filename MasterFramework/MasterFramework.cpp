@@ -6,6 +6,7 @@
 
 int main()
 {
+	PrintWelcomeMessage();
 	//Create master
 	Master* pMaster = new Master();
 
