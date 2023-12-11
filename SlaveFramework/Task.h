@@ -23,7 +23,7 @@ private:
 public:
 	ETASK::Task GetTaskId();
 
-	Task(ETASK::Task m_TaskId);
+	Task(ETASK::Task m_TaskId); //TODO: Handle params
 	~Task();
 };
 

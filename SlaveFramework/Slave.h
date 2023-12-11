@@ -23,6 +23,8 @@ public:
 	SlaveDispatcher* GetDispatcher();
 
 	//Handle TaskExecutor
+	void CreateTaskExecutor();
+	void DestroyTaskExecutor();
 	TaskExecutor* GetTaskExecutor();
 
 	//Utils

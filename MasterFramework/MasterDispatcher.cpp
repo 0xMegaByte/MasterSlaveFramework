@@ -229,9 +229,9 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 
 						////TODO: Test another response for 2nd packet
 						//MSFPacket* pTestPacket = new MSFPacket(
-						//	EPACKET::PacketType::ResponsePacket,
+						//	EPACKET::PacketType::TaskPacket,
 						//	ulSlaveId,
-						//	EPACKET::CMD::SLAVE_MASTER_ACK_CONNECTION_RESPONSE,
+						//	EPACKET::CMD::TASK_OPEN_CMD,
 						//	(unsigned char*)"Zbabirat");
 						//pNewConnectionPQ->push_back(pTestPacket);
 						//DEBUG_PRINT_CLS("Pushed test packet\n");

@@ -1,95 +1,106 @@
 #include "SlaveDispatcher.h"
+#include "Task.h"
 
 DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 {
 	DEBUG_PRINT_CLS("Entered thread\n");
 
-	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
+	TaskExecutor* pTaskExecutor = static_cast<TaskExecutor*>(lpv);
+
+	if (pTaskExecutor)
 	{
-		DEBUG_PRINT_CLS("Thread running..\n");
-
-		if (this->m_bWSA)
+		if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 		{
-			//Ref. to the socket for better understanding
-			SOCKET& _socket = this->m_socket;
-			MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
+			DEBUG_PRINT_CLS("Thread running..\n");
 
-			if (pPacketQueue)
+			if (this->m_bWSA)
 			{
-				int nResults = 0;
-				char cRecvBuf[sizeof(MSFPacket)]{ 0 };
+				//Ref. to the socket for better understanding
+				SOCKET& _socket = this->m_socket;
+				MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
 
-				while (this->m_bStart)
+				if (pPacketQueue)
 				{
-					if (pPacketQueue)
+					int nResults = 0;
+					char cRecvBuf[sizeof(MSFPacket)]{ 0 };
+
+					while (this->m_bStart)
 					{
-						nResults = 0;
-						ZeroMemory(cRecvBuf, sizeof(MSFPacket));
-
-						do
+						if (pPacketQueue)
 						{
-							nResults = recv(_socket, cRecvBuf, sizeof(MSFPacket), 0);
-							if (nResults > 0)
+							nResults = 0;
+							ZeroMemory(cRecvBuf, sizeof(MSFPacket));
+
+							do
 							{
-								DEBUG_PRINT_CLS("Bytes received: %d\n", nResults);
-
-								//Handle recived bytes as MSFpacket
-								MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
-								if (pPacket)
+								nResults = recv(_socket, cRecvBuf, sizeof(MSFPacket), 0);
+								if (nResults > 0)
 								{
-									pPacket->PrintPacket();
+									DEBUG_PRINT_CLS("Bytes received: %d\n", nResults);
 
-									switch (pPacket->getPacketType())
+									//Handle recived bytes as MSFpacket
+									MSFPacket* pPacket = (MSFPacket*)cRecvBuf;
+									if (pPacket)
 									{
-									case EPACKET::PacketType::Acknowledge:
-									{
-										const char* buf = "<some_data>";
+										pPacket->PrintPacket();
 
-										MSFPacket* pACKPacket =
-											new MSFPacket(EPACKET::PacketType::ResponsePacket,
-												pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
-												(unsigned char*)buf);
+										switch (pPacket->getPacketType())
+										{
+										case EPACKET::PacketType::Acknowledge:
+										{
+											const char* buf = "<some_data>";
 
-										this->SecureQueuePushBack(pACKPacket);
+											MSFPacket* pACKPacket =
+												new MSFPacket(EPACKET::PacketType::ResponsePacket,
+													pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+													(unsigned char*)buf);
 
-										DEBUG_PRINT_CLS("Pushed ACK packet to queue\n");
+											this->SecureQueuePushBack(pACKPacket);
 
-										break;
-									}
-									case EPACKET::PacketType::TaskPacket:
-									{
-										//Push new task to taskexecutor		                                                                                                                                                                                                                                                                        
-										break;
+											DEBUG_PRINT_CLS("Pushed ACK packet to queue\n");
 
-									}
-									default:
-										break;
+											break;
+										}
+										case EPACKET::PacketType::TaskPacket:
+										{
+											//Push new task to taskexecutor
+											Task* pTask = new Task((ETASK::Task)pPacket->getOpCode());
+											if (pTask)
+											{
+												pTaskExecutor->SecurePushBack(pTask);
+											}
+
+											break;
+
+										}
+										default:
+											break;
+										}
 									}
 								}
-							}
-							else if (nResults == 0)
-							{
-								//printf("Connection closed\n");
-								DEBUG_PRINT("Connection closed\n");
-							}
-							else
-							{
-								//printf("recv failed: %d\n", WSAGetLastError());
-								DEBUG_PRINT("Recv failed: %d\n", WSA_ERR);
-							}
+								else if (nResults == 0)
+								{
+									//printf("Connection closed\n");
+									DEBUG_PRINT("Connection closed\n");
+								}
+								else
+								{
+									//printf("recv failed: %d\n", WSAGetLastError());
+									DEBUG_PRINT("Recv failed: %d\n", WSA_ERR);
+								}
 
-							Sleep(500);
-						} while (nResults > 0); //failed? terminate? retry?
+								Sleep(500);
+							} while (nResults > 0); //failed? terminate? retry?
 
 
-						//Cleanup when this->deinitialize
+							//Cleanup when this->deinitialize
+						}
 					}
 				}
 			}
+			//close?
 		}
-		//close?
 	}
-
 	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
@@ -192,9 +203,14 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 	}
 }
 
-void SlaveDispatcher::Connect()
+void SlaveDispatcher::Connect(void* pTaskExecutor)
 {
-	if (this->m_bWSA)
+	if (!pTaskExecutor)
+	{
+		DEBUG_PRINT_CLS("Invalid Task Executor pointer! (%p)\n", pTaskExecutor);
+
+	}
+	else if (this->m_bWSA)
 	{
 		int nConnectRes = SOCKET_ERROR;
 		int nRetriesLeft = 10;
@@ -235,7 +251,7 @@ void SlaveDispatcher::Connect()
 				DEBUG_PRINT("Connected to server!\n");
 				this->m_bConnected = true;
 
-				this->CreateDispatcherThreads();
+				this->CreateDispatcherThreads(pTaskExecutor);
 
 				break;
 			}
@@ -258,25 +274,70 @@ void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
 	this->m_PacketQueueLock.unlock();
 }
 
+struct ThreadArgs
+{
+	SlaveDispatcher* m_pSlaveDisptacher = nullptr;
+	void* m_pTaskExecutor = nullptr;
+};
+
 DWORD WINAPI ReceiveThreadWrapper(LPVOID lpv)
 {
-	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
-	return psd->ReceiveThread(nullptr);
+	ThreadArgs* pThreadArgs = static_cast<ThreadArgs*>(lpv);
+
+	if (pThreadArgs)
+	{
+		SlaveDispatcher* pSlaveDispatcher = 
+			static_cast<SlaveDispatcher*>(pThreadArgs->m_pSlaveDisptacher);
+		if (pSlaveDispatcher && pThreadArgs->m_pTaskExecutor)
+		{
+			void* pTaskExecutor = pThreadArgs->m_pTaskExecutor;
+			return pSlaveDispatcher->ReceiveThread(pTaskExecutor);
+		}
+	}
+	return -1;
 }
 
 DWORD WINAPI SendThreadWrapper(LPVOID lpv)
 {
+	/*ThreadArgs* pThreadArgs = static_cast<ThreadArgs*>(lpv);
+	if (pThreadArgs)
+	{
+		SlaveDispatcher* pSlaveDispatcher =
+			static_cast<SlaveDispatcher*>(pThreadArgs->m_pSlaveDisptacher);
+
+		if (pSlaveDispatcher && pThreadArgs->m_pTaskExecutor)
+		{
+			void* pTaskExecutor = pThreadArgs->m_pTaskExecutor;
+			return pSlaveDispatcher->SendThread(pTaskExecutor);
+		}
+	}*/
+
 	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
 	return psd->SendThread(nullptr);
+
+	return -1;
 }
 
-void SlaveDispatcher::CreateDispatcherThreads()
+void SlaveDispatcher::CreateDispatcherThreads(void* pTaskExecutor)
 {
-	if (this->m_hReceiveThread == INVALID_HANDLE_VALUE)
-		this->m_hReceiveThread = CreateThread(0, 0, ReceiveThreadWrapper, this, 0, 0);
+	if (pTaskExecutor)
+	{
+		ThreadArgs _ThreadArgs
+		{
+			this,
+			pTaskExecutor
+		};
 
-	if (this->m_hSendThread == INVALID_HANDLE_VALUE)
-		this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
+		if (this->m_hReceiveThread == INVALID_HANDLE_VALUE)
+			this->m_hReceiveThread = CreateThread(0, 0, ReceiveThreadWrapper, &_ThreadArgs, 0, 0);
+
+		if (this->m_hSendThread == INVALID_HANDLE_VALUE)
+			this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
+	}
+	else
+	{
+		DEBUG_PRINT_CLS("Invalid TaskExecutor pointer! (%p)\n", pTaskExecutor);
+	}
 
 }
 

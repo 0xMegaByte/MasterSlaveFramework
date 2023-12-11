@@ -77,6 +77,11 @@ TASK_CALLBACK_THREAD(MakeABeep)
 	Beep(1000, 100);
 	return 0;
 }
+TASK_CALLBACK_THREAD(OpenCMD)
+{
+	system("cmd.exe /c whoami");
+	return 0;
+}
 
 void TaskExecutor::MakeTaskCallbacks()
 {
@@ -85,31 +90,37 @@ void TaskExecutor::MakeTaskCallbacks()
 		TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
 
 		TaskCallbacks.insert({ETASK::Task::TASK_BEEP,&MakeABeep});
+		TaskCallbacks.insert({ ETASK::Task::TASK_OPEN_CMD,&OpenCMD });
 
 		//Insert here more tasks
 	}
 }
 
-void TaskExecutor::ExecuteTasks()
+void TaskExecutor::ExecuteTasks() //TODO: Make in the main or create separated thread
 {
 	if (this->m_pTaskQueue)
 	{
-		Task* pTask = SecureGetFirst();
-
-		if (pTask)
+		if (!this->m_pTaskQueue->empty())
 		{
-			if (this->m_pTaskCallbacks)
+			Task* pTask = SecureGetFirst();
+
+			if (pTask)
 			{
-				TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
-
-				TaskCallbackThread Callback = (*TaskCallbacks.find(pTask->GetTaskId())).second;
-
-				CreateThread(0, 0, Callback, nullptr, 0, 0);
-
-				if (pTask->GetTaskId() == ETASK::Task::TASK_BEEP)
+				if (this->m_pTaskCallbacks)
 				{
-					
+					TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
+
+					TaskCallbackThread Callback = (*TaskCallbacks.find(pTask->GetTaskId())).second;
+
+					//if(Callback != (*TaskCallbacks.end()).second)
+						CreateThread(0, 0, Callback, nullptr, 0, 0);
+
+					/*if (pTask->GetTaskId() == ETASK::Task::TASK_BEEP)
+					{
+
+					}*/
 				}
+				SecurePopDelete();
 			}
 		}
 	}

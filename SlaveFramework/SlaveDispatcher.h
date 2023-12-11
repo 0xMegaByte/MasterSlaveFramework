@@ -16,7 +16,7 @@ public:
 	DWORD WINAPI ReceiveThread(LPVOID lpv);
 	void SocketSetup(const char* pcIpAddress, const unsigned short usPort) override;
 
-	void Connect();
+	void Connect(void* pTaskExecutor);
 	bool IsDispatcherConnected();
 
 	
@@ -32,6 +32,6 @@ public:
 	};
 	~SlaveDispatcher() {};
 
-	void CreateDispatcherThreads();
+	void CreateDispatcherThreads(void* pTaskExecutor);
 };
 
