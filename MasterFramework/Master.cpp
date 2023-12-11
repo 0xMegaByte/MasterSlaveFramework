@@ -8,8 +8,13 @@ Master::Master() :
 
 Master::~Master()
 {
-	//DELETE_PTR(m_hDispatcherThread);
-	//TODO:
+	//TODO: Valid?
+	if (this->m_hAcceptConnections != INVALID_HANDLE_VALUE)
+	{
+		if (GetHandleInformation(this->m_hAcceptConnections, 0))
+			CloseHandle(this->m_hAcceptConnections);
+	}
+
 	DELETE_PTR(this->m_pDispatcher);
 	DEBUG_PRINT_CLS("Completed\n");
 }
@@ -38,7 +43,7 @@ void Master::CreateDispatcher()
 	{
 		this->m_hAcceptConnections = CreateThread(0, 0, AcceptConnectionsThreadWrapper, this->m_pDispatcher, 0, 0);
 		if (this->m_hAcceptConnections)
-			DEBUG_PRINT_CLS("Thread created (Handle @0x%p)\n",this->m_hAcceptConnections);
+			DEBUG_PRINT_CLS("Thread created (Handle @0x%p)\n", this->m_hAcceptConnections);
 	}
 
 	DEBUG_PRINT("Completed\n");

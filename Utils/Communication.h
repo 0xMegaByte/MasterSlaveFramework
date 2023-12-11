@@ -60,7 +60,7 @@ public:
 	void PrintPacket();
 };
 
-typedef std::deque<MSFPacket*> MSFPacketQueue;
+typedef std::deque<MSFPacket*> MSFPacketQueue; //TOOD: Maybe create a class where each PQ has an internal/external lock?
 
 class PacketDispatcher
 {
@@ -76,7 +76,6 @@ protected:
 	addrinfo* m_pservice;
 
 	void* m_hDispatcherEvent;
-	//MSFPacketQueue* m_pPacketQueue;
 public:
 
 	virtual void SocketSetup(const char* pcIpAddress, const unsigned short usPort) = 0;

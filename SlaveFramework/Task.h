@@ -1,5 +1,6 @@
 #pragma once
-#include "..\Utils\Utils.h"
+#include "../Utils/pch.h"
+
 
 typedef DWORD(__stdcall* TaskCallbackThread)(void*);
 #define TASK_CALLBACK_THREAD( Name ) DWORD __stdcall Name(void* lpv)

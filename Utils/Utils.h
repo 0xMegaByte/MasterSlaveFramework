@@ -2,7 +2,7 @@
 #include <deque>
 #include <unordered_map>
 #include <mutex>
-#include <windows.h>
+//#include <windows.h>
 
 #define DELETE_PTR(ptr) if(ptr){decltype(ptr) tmptr = ptr; ptr = nullptr; delete tmptr;}
 #define BUF_LEN 512 //(0x200)

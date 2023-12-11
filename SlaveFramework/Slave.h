@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mutex>
 #include "Task.h"
 #include "SlaveDispatcher.h"
 
@@ -8,8 +7,6 @@
 class Slave
 {
 private:
-	void* m_hSendThread;
-	void* m_hReceiveThread;
 
 	unsigned long m_ulSlaveId;
 

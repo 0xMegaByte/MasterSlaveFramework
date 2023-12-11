@@ -58,6 +58,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 									}
 									case EPACKET::PacketType::TaskPacket:
 									{
+										//Push new task to taskexecutor		                                                                                                                                                                                                                                                                        
 										break;
 
 									}
@@ -186,7 +187,9 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		}
 	}
 	else
+	{
 		DEBUG_PRINT("ERROR: WSA not working.\n");
+	}
 }
 
 void SlaveDispatcher::Connect()
@@ -231,6 +234,9 @@ void SlaveDispatcher::Connect()
 			{
 				DEBUG_PRINT("Connected to server!\n");
 				this->m_bConnected = true;
+
+				this->CreateDispatcherThreads();
+
 				break;
 			}
 		} while (!this->m_bConnected);
@@ -250,6 +256,28 @@ void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
 			this->m_pPacketQueue->push_back(pPacket);
 	}
 	this->m_PacketQueueLock.unlock();
+}
+
+DWORD WINAPI ReceiveThreadWrapper(LPVOID lpv)
+{
+	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
+	return psd->ReceiveThread(nullptr);
+}
+
+DWORD WINAPI SendThreadWrapper(LPVOID lpv)
+{
+	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
+	return psd->SendThread(nullptr);
+}
+
+void SlaveDispatcher::CreateDispatcherThreads()
+{
+	if (this->m_hReceiveThread == INVALID_HANDLE_VALUE)
+		this->m_hReceiveThread = CreateThread(0, 0, ReceiveThreadWrapper, this, 0, 0);
+
+	if (this->m_hSendThread == INVALID_HANDLE_VALUE)
+		this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
+
 }
 
 void SlaveDispatcher::SecureQueuePopFront()

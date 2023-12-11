@@ -17,6 +17,7 @@ private:
 public:
 
 	DWORD WINAPI AcceptConnectionThread(LPVOID lpv);
+	//DWORD WINAPI MonitorConnections(LPVOID lpv);	
 
 	void SocketSetup(const char* pcIpAddress, const unsigned short usPort);
 
@@ -42,3 +43,5 @@ public:
 	~MasterDispatcher() {};
 };
 
+//TODO: How to cross examine SlaveThreadHandles and Connections vector
+//Create a graceful / semi-graceful shutdown

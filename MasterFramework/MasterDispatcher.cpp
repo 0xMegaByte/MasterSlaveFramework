@@ -1,112 +1,5 @@
 #include "MasterDispatcher.h"
 
-/*DWORD WINAPI MasterDispatcher::SendThread(LPVOID lpv)
-{
-	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
-	{
-		DEBUG_PRINT("Dispatcher event signaled\n");
-
-		//Check if WSA's status
-		if (this->m_bWSA)
-		{
-
-			SOCKET& master_socket = this->m_socket; //Ref. to the socket for better understanding
-
-			if (this->m_socket)
-			{
-				//Handle Packet Queue
-				MSFPacketQueue* pPacketQueue = this->m_pPacketQueue;
-
-				while (this->m_bStart) //Flag to terminate this thread
-				{
-
-
-					//delay?
-
-					if (pPacketQueue)
-					{
-						if (!pPacketQueue->empty())
-						{
-							DEBUG_PRINT("Packet queue size: %llu.\n", pPacketQueue->size());
-
-							MSFPacket* pPacket = pPacketQueue->front();
-
-
-
-
-
-							char buffer[sizeof(MSFPacket)]{ 0 };
-
-							memcpy_s(buffer, sizeof(MSFPacket), pPacket, sizeof(MSFPacket));
-
-							//TODO: make the packet sendong size dynamic.
-							// no need to send the whole empty bytes in the param.
-							//send(slave_socket, (const char*)packet, sizeof(packet), 0);
-
-
-
-
-							send(slave_socket, (const char*)buffer, sizeof(buffer), 0);
-
-							DEBUG_PRINT("Packet sent successfully.\n");
-
-							delete pPacketQueue->front();
-							pPacketQueue->pop_front();// commented for test
-						}
-					}
-				}
-			}
-		}
-		//close?
-
-	}
-	DEBUG_PRINT("Thread existed\n");
-	return 0;
-}*/
-
-/*DWORD WINAPI MasterDispatcher::ReceiveThread(LPVOID lpv)
-{
-	if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
-	{
-		if (this->m_bWSA)
-		{
-			//Check if any recv response buffer
-
-
-			int nResults, nSendResults;
-			char cRecvBuf[BUF_LEN]{ 0 };
-
-			nResults = nSendResults = 0;
-
-			do
-			{
-				nResults = recv(slave_socket, cRecvBuf, BUF_LEN, 0);
-
-				if (nResults > 0)
-				{
-					int i = 1;
-					++i;
-					printf("Bytes received to master: %d\n", 1);
-					//Handle recived bytes as MSFpacket
-					//Report to DB packets response using the MSFpacket data
-				}
-				else if (nResults == 0)
-				{
-					printf("Connection closing...\n");
-				}
-				else
-				{
-					//fail
-					printf("%d\n", WSA_ERR);
-				}
-
-			} while (nResults > 0); //BUG: Thread terminates due to the socket initialization is in the send thread and not outside these threads
-		}
-	}
-	DEBUG_PRINT("Thread Exited\n");
-	return 0;
-}*/
-
 DWORD __stdcall ProcessSlave(LPVOID lpv)
 {
 	DEBUG_PRINT("Thread running...\n");
@@ -116,6 +9,18 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 
 	if (pConnection)
 	{
+
+		//I want to close the thread when it is irrelvent no more
+		//When it is not relevent?
+		//Socket closed
+		//bStart flag is no more relevent (changed globally?)
+
+		//Noozie solution:
+		//Use keep alive packets
+		//Or "query the socket state"
+		//If disconnected, kill the thread and clean
+
+
 		DEBUG_PRINT("Connection's details converted\n");
 		unsigned long ulSlaveId = pConnection->m_ulSlaveId;
 
@@ -148,7 +53,7 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						if (pAckPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
 						{
 							DEBUG_PRINT("Sending ACK Packet to slave\n");
-							
+
 							pAckPacket->PrintPacket();
 
 							char cAckPacketBuffer[MSFPACKET_SIZE]{ 0 };
@@ -157,11 +62,20 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 							nbytesSent = send(SlaveSocket, cAckPacketBuffer, MSFPACKET_SIZE, 0);
 							if (nbytesSent == SOCKET_ERROR)
 							{
-								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+								DWORD dwWSA_ERR = WSA_ERR;
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR); 
+								if (dwWSA_ERR == WSAECONNRESET)
+								{
+									DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
+								}
+								
+								bStart = false;
 							}
-
-							DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
-							bPacketSent = true;
+							else
+							{
+								DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
+								bPacketSent = true;
+							}
 						}
 
 						//pop it from queue
@@ -171,7 +85,7 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 					}
 				}
 #pragma endregion
-				
+
 				while (bStart)
 				{
 					//Handle Packet Queue send commands
@@ -186,7 +100,13 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 							nbytesSent = send(SlaveSocket, cPacketBuffer, MSFPACKET_SIZE, 0);
 							if (nbytesSent == SOCKET_ERROR)
 							{
-								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", WSA_ERR);
+								DWORD dwWSA_ERR = WSA_ERR;
+								DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR);
+								if (dwWSA_ERR == WSAECONNRESET)
+								{
+									DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
+								}
+								bStart = bPacketSent = false;
 							}
 							else
 							{
@@ -223,14 +143,14 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						else if (nbytesRecv == 0)
 						{
 							DEBUG_PRINT("Connection with slave(%lu) closing...\n", ulSlaveId);
+							bPacketSent = false;
 						}
 						else
 						{
 							//fail
 							DEBUG_PRINT("Recv() failed. [WSA:%d]\n", WSA_ERR);
+							bPacketSent = false;
 						}
-
-						bPacketSent = false;
 					}
 				}
 			}
@@ -238,6 +158,7 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 	}
 
 	DEBUG_PRINT("Existing Thread...\n");
+	//TODO: Handle graceful connection shutdown outside the thread
 	return 0;
 }
 
@@ -278,14 +199,14 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 					//Issue new connection info
 					Connection NewConnection
 					{
-						ulSlaveId, //Assign SlaveId
-						tempSocket,
-						pNewConnectionPQ,
+						ulSlaveId,			//Assign SlaveId
+						tempSocket,			//dedicated slave socket
+						pNewConnectionPQ,	//Exposed outside the thread to add packets
 						this->m_bStart
 					};
 
 					HANDLE hNewConnection = INVALID_HANDLE_VALUE;
-					hNewConnection = CreateThread(0, 0, ProcessSlave, &NewConnection, CREATE_SUSPENDED,0);
+					hNewConnection = CreateThread(0, 0, ProcessSlave, &NewConnection, CREATE_SUSPENDED, 0);
 
 					if (hNewConnection)
 					{
@@ -305,9 +226,20 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 
 						pNewConnectionPQ->push_back(pAckPacket); //TOOD:Lock unlock
 						DEBUG_PRINT_CLS("Added ACK packet to slave's packet queue\n");
+
+						////TODO: Test another response for 2nd packet
+						//MSFPacket* pTestPacket = new MSFPacket(
+						//	EPACKET::PacketType::ResponsePacket,
+						//	ulSlaveId,
+						//	EPACKET::CMD::SLAVE_MASTER_ACK_CONNECTION_RESPONSE,
+						//	(unsigned char*)"Zbabirat");
+						//pNewConnectionPQ->push_back(pTestPacket);
+						//DEBUG_PRINT_CLS("Pushed test packet\n");
+
+
 						ResumeThread(hNewConnection);
 					}
-					
+
 					pNewConnectionPQ = nullptr;
 				}
 
