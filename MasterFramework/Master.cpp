@@ -11,7 +11,7 @@ Master::~Master()
 	//TODO: Valid?
 	if (this->m_hAcceptConnections != INVALID_HANDLE_VALUE)
 	{
-		if (GetHandleInformation(this->m_hAcceptConnections, 0))
+		if (GetHandleInformation(this->m_hAcceptConnections, nullptr))
 			CloseHandle(this->m_hAcceptConnections);
 	}
 

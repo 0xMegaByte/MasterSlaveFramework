@@ -17,19 +17,14 @@ int main()
 		//Establish Master-Slave
 		pMaster->CreateDispatcher();
 
-		MasterDispatcher* pmd = (pMaster)->GetDispatcher();
-		if (pmd)
+		MasterDispatcher* pMasterDisptacher = (pMaster)->GetDispatcher();
+		if (pMasterDisptacher)
 		{
-			pmd->Initialize();
-			pmd->SocketSetup(nullptr, 6969);
-			pmd->Start(); //Start Dispatcher Thread
+			pMasterDisptacher->Initialize();
+			pMasterDisptacher->SocketSetup(nullptr, 6969);
+			pMasterDisptacher->Start(); //Start Dispatcher Thread
 
 			DEBUG_PRINT("Master disptacher initialized\n");
-
-			//Create packets out of command or any interface
-			//pMaster->CreatePacket()->QueuePush()
-			//MSFPacket* pPacket = new MSFPacket(EPACKET::PacketType::TaskPacket, 1, EPACKET::CMD::TASK_BEEP, (unsigned char*)"Test");
-
 
 			//TODO: USE DATABASE TO STORE WHICH SLAVE HAS WHAT IP
 
@@ -39,10 +34,9 @@ int main()
 				//LOOP UNTIL TERMINATION
 			}
 
-			DELETE_PTR(pmd);
+			DELETE_PTR(pMasterDisptacher);
 		}
+
+		DELETE_PTR(pMaster);
 	}
-
-	
-
 }	

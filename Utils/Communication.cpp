@@ -82,8 +82,6 @@ void MSFPacket::PrintPacket()
 		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %lu | SlaveId: %lu | Buffer: %s\n",
 			PacketTypeToString(), ulOpCode, ulSlaveId, pucBuffer);
 	}
-
-
 }
 //-----------------Packet Dispatcher----------------------
 
@@ -107,7 +105,9 @@ void PacketDispatcher::SocketWSACleanup()
 			DEBUG_PRINT_CLS("Completed\n");
 		}
 		else
+		{
 			DEBUG_PRINT_CLS("Failed\n");
+		}
 	}
 }
 
@@ -118,8 +118,10 @@ void PacketDispatcher::Initialize()
 	{
 		DEBUG_PRINT_CLS("WSA ERROR: %d", WSA_ERR);
 	}
-
-	this->m_bWSA = true;
+	else
+	{
+		this->m_bWSA = true;
+	}
 
 	DEBUG_PRINT_CLS("Completed\n");
 }
@@ -136,7 +138,6 @@ void PacketDispatcher::Deinitialize()
 		{
 			DEBUG_PRINT_CLS("Socket closed successfully\n");
 		}
-
 	}
 
 	if (this->m_bWSA)
@@ -144,7 +145,7 @@ void PacketDispatcher::Deinitialize()
 		this->SocketWSACleanup();
 	}
 
-	//Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
+	// UNDONE: Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
 	if (this->m_hDispatcherEvent != INVALID_HANDLE_VALUE)
 		CloseHandle(this->m_hDispatcherEvent);
 

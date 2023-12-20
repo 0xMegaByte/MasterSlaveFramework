@@ -24,12 +24,18 @@
     <ClCompile Include="MasterDispatcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="HandleSlaveConnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Master.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MasterDispatcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HandleSlaveConnection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
