@@ -32,8 +32,6 @@ namespace EPACKET {
 	};
 }
 
-
-
 #define MSFPACKET_SIZE sizeof(MSFPacket) //524ui64
 
 class MSFPacket						//Not socket but part of the socket
@@ -64,7 +62,6 @@ typedef std::deque<MSFPacket*> MSFPacketQueue; //TOOD: Maybe create a class wher
 
 class PacketDispatcher
 {
-
 private:
 	WSADATA m_wsaData;
 
@@ -76,6 +73,7 @@ protected:
 	addrinfo* m_pservice;
 
 	void* m_hDispatcherEvent;
+
 public:
 
 	virtual void SocketSetup(const char* pcIpAddress, const unsigned short usPort) = 0;
@@ -87,7 +85,6 @@ public:
 	void Terminate();		//bTerminate set to true & set m_hDispatcherEvent to non-signaled state
 
 	bool IsEventStateSignaled(void* hEvent);
-
 
 	SOCKET GetSocket();			//Returns sockets
 	addrinfo* GetService();		//Returns service

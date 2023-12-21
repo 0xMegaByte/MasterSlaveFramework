@@ -1,3 +1,19 @@
+/*
+Copyright (C) 2023 Matan Shitrit (0xMegaByte)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include "MasterDispatcher.h"
 
 DWORD __stdcall ProcessSlave(LPVOID lpv)
@@ -9,24 +25,15 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 
 	if (pSlaveConnection)
 	{
-
-		//I want to close the thread when it is irrelvent no more
-		//When it is not relevent?
-		//Socket closed
-		//bStart flag is no more relevent (changed globally?)
-
-		//Noozie solution:
+		//Monitor connections options
 		//Use keep alive packets
 		//Or "query the socket state"
 		//If disconnected, kill the thread and clean
-
 
 		DEBUG_PRINT("Connection's details converted\n");
 		unsigned long ulSlaveId = pSlaveConnection->GetConnectionId();
 
 		bool bStart = pSlaveConnection->GetStartFlag();
-
-
 
 		if (MSFPacketQueue* pPacketQueue = pSlaveConnection->GetMSFPacketQueue())
 		{
@@ -48,46 +55,48 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 					if (!pPacketQueue->empty())
 					{
 						pLock->lock();
-						MSFPacket* pAckPacket = pPacketQueue->front();
-
-						if (pAckPacket)
 						{
-							//check if Ack type
-							if (pAckPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
+							MSFPacket* pAckPacket = pPacketQueue->front();
+
+							if (pAckPacket)
 							{
-								DEBUG_PRINT("Sending ACK Packet to slave\n");
-
-								pAckPacket->PrintPacket();
-
-								char cAckPacketBuffer[MSFPACKET_SIZE]{ 0 };
-								memcpy_s(cAckPacketBuffer, MSFPACKET_SIZE, pAckPacket, MSFPACKET_SIZE);
-
-								nbytesSent = send(SlaveSocket, cAckPacketBuffer, MSFPACKET_SIZE, 0);
-								if (nbytesSent == SOCKET_ERROR)
+								//check if Ack type
+								if (pAckPacket->getPacketType() == EPACKET::PacketType::Acknowledge)
 								{
-									DWORD dwWSA_ERR = WSA_ERR;
-									DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR);
-									if (dwWSA_ERR == WSAECONNRESET)
+									DEBUG_PRINT("Sending ACK Packet to slave\n");
+
+									pAckPacket->PrintPacket();
+
+									char cAckPacketBuffer[MSFPACKET_SIZE]{ 0 };
+									memcpy_s(cAckPacketBuffer, MSFPACKET_SIZE, pAckPacket, MSFPACKET_SIZE);
+
+									nbytesSent = send(SlaveSocket, cAckPacketBuffer, MSFPACKET_SIZE, 0);
+									if (nbytesSent == SOCKET_ERROR)
 									{
-										DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
+										DWORD dwWSA_ERR = WSA_ERR;
+										DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR);
+										if (dwWSA_ERR == WSAECONNRESET)
+										{
+											DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
+										}
+
+										bStart = false;
 									}
+									else
+									{
+										DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
+										bPacketSent = true;
+									}
+								}
 
-									bStart = false;
-								}
-								else
-								{
-									DEBUG_PRINT("Master sent ACK to Slave(%lu)\n", ulSlaveId);
-									bPacketSent = true;
-								}
+								//pop it from queue
+								pPacketQueue->pop_front();
+
+								//delete it from mem
+								DELETE_PTR(pAckPacket);
 							}
-
-							//pop it from queue
-
-							pPacketQueue->pop_front();
-							pLock->unlock();
-							//delete it from mem
-							DELETE_PTR(pAckPacket);
 						}
+						pLock->unlock();
 					}
 #pragma endregion
 
@@ -97,40 +106,42 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 						if (!pPacketQueue->empty())
 						{
 							pLock->lock();
-							MSFPacket* pPacket = pPacketQueue->front();
-							if (pPacket)
 							{
-								char cPacketBuffer[MSFPACKET_SIZE]{ 0 };
-								memcpy_s(cPacketBuffer, MSFPACKET_SIZE, pPacket, MSFPACKET_SIZE);
-
-								nbytesSent = send(SlaveSocket, cPacketBuffer, MSFPACKET_SIZE, 0);
-								if (nbytesSent == SOCKET_ERROR)
+								MSFPacket* pPacket = pPacketQueue->front();
+								if (pPacket)
 								{
-									DWORD dwWSA_ERR = WSA_ERR;
-									DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR);
-									if (dwWSA_ERR == WSAECONNRESET)
+									char cPacketBuffer[MSFPACKET_SIZE]{ 0 };
+									memcpy_s(cPacketBuffer, MSFPACKET_SIZE, pPacket, MSFPACKET_SIZE);
+
+									nbytesSent = send(SlaveSocket, cPacketBuffer, MSFPACKET_SIZE, 0);
+									if (nbytesSent == SOCKET_ERROR)
 									{
-										DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
-									}
-									bStart = bPacketSent = false;
-								}
-								else
-								{
-									bPacketSent = true;
-								}
-							}
+										DWORD dwWSA_ERR = WSA_ERR;
+										DEBUG_PRINT("Failed to send packet! [WSA:%d]\n", dwWSA_ERR);
+										if (dwWSA_ERR == WSAECONNRESET)
+										{
+											DEBUG_PRINT("Client %lu disconnected!\n", ulSlaveId);
+										}
 
-							pPacketQueue->pop_front();
-							DELETE_PTR(pPacket);
+										bStart = bPacketSent = false;
+									}
+									else
+									{
+										bPacketSent = true;
+									}
+								}
+
+								pPacketQueue->pop_front();
+								DELETE_PTR(pPacket);
+							}
 							pLock->unlock();
 						}
-
 
 						if (bPacketSent)
 						{
 							DEBUG_PRINT("Waiting for slave reponse..\n");
 
-							//Handle Recv after sending
+							//Handle Recv after sending | Waiting for the master to send new packet; and the slave to respond
 							nbytesRecv = recv(SlaveSocket, recvBuf, MSFPACKET_SIZE, 0);
 							if (nbytesRecv > 0)
 							{
@@ -341,6 +352,7 @@ void MasterDispatcher::AddSlaveThreadHandle(unsigned long ulSlaveId, void* hSlav
 	this->m_SlaveThreadHandlesLock.unlock();
 }
 #endif
+
 void MasterDispatcher::IncrementTotalSlaveCount()
 {
 	this->m_SlaveCountLock.lock();
