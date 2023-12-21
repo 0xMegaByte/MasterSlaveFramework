@@ -32,8 +32,6 @@ namespace EPACKET {
 	};
 }
 
-
-
 #define MSFPACKET_SIZE sizeof(MSFPacket) //524ui64
 
 class MSFPacket						//Not socket but part of the socket
@@ -60,11 +58,10 @@ public:
 	void PrintPacket();
 };
 
-typedef std::deque<MSFPacket*> MSFPacketQueue;
+typedef std::deque<MSFPacket*> MSFPacketQueue; //TOOD: Maybe create a class where each PQ has an internal/external lock?
 
 class PacketDispatcher
 {
-
 private:
 	WSADATA m_wsaData;
 
@@ -76,7 +73,7 @@ protected:
 	addrinfo* m_pservice;
 
 	void* m_hDispatcherEvent;
-	//MSFPacketQueue* m_pPacketQueue;
+
 public:
 
 	virtual void SocketSetup(const char* pcIpAddress, const unsigned short usPort) = 0;
@@ -88,7 +85,6 @@ public:
 	void Terminate();		//bTerminate set to true & set m_hDispatcherEvent to non-signaled state
 
 	bool IsEventStateSignaled(void* hEvent);
-
 
 	SOCKET GetSocket();			//Returns sockets
 	addrinfo* GetService();		//Returns service

@@ -15,32 +15,37 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "Task.h"
-#include "SlaveDispatcher.h"
-#pragma comment(lib,"Utils.lib")
+#include "..\Utils\Communication.h"
+#include "..\Utils\Utils.h"
 
-class Slave
+class SlaveConnection
 {
 private:
-	unsigned long m_ulSlaveId;
-
-	TaskExecutor* m_pTaskExectutor;
-	SlaveDispatcher* m_pDispatcher;
+	unsigned long m_ulSlaveConnectionId;
+	SOCKET m_socket = INVALID_SOCKET;
+	MSFPacketQueue* m_pSlavePacketQueue = nullptr;
+	std::mutex* m_pPacketQueueLock;
+	bool m_bStart;
+	bool m_bIsThreadFinished;
 
 public:
-	Slave(unsigned long ulSlaveId);
-	~Slave();
+	
+	unsigned long GetConnectionId();
 
-	//Handle Dispatcher
-	void CreateDispatcher();
-	void DestroyDispatcher();
-	SlaveDispatcher* GetDispatcher();
+	SOCKET GetSocket();
 
-	//Handle TaskExecutor
-	void CreateTaskExecutor();
-	void DestroyTaskExecutor();
-	TaskExecutor* GetTaskExecutor();
+	MSFPacketQueue* GetMSFPacketQueue();
+	std::mutex* GetMSFPacketQueueLock();
 
-	//Utils
-	unsigned long GetSlaveId();
+	bool GetStartFlag();
+	void SetStartFlag(bool bStart);
+
+	bool GetThreadFinishedFlag();
+	void SetThreadFinishedFlag(bool bFinished);
+
+	SlaveConnection(unsigned long ulSlaveConnectionId,
+		SOCKET socket, bool bStart = false);
+	~SlaveConnection();
+
 };
+

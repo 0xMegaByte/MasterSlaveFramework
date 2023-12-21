@@ -1,3 +1,19 @@
+/*
+Copyright (C) 2023 Matan Shitrit (0xMegaByte)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include "pch.h"
 #pragma comment(lib,"Ws2_32.lib")
 
@@ -82,9 +98,8 @@ void MSFPacket::PrintPacket()
 		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %lu | SlaveId: %lu | Buffer: %s\n",
 			PacketTypeToString(), ulOpCode, ulSlaveId, pucBuffer);
 	}
-
-
 }
+
 //-----------------Packet Dispatcher----------------------
 
 SOCKET PacketDispatcher::GetSocket()
@@ -107,7 +122,9 @@ void PacketDispatcher::SocketWSACleanup()
 			DEBUG_PRINT_CLS("Completed\n");
 		}
 		else
+		{
 			DEBUG_PRINT_CLS("Failed\n");
+		}
 	}
 }
 
@@ -118,8 +135,10 @@ void PacketDispatcher::Initialize()
 	{
 		DEBUG_PRINT_CLS("WSA ERROR: %d", WSA_ERR);
 	}
-
-	this->m_bWSA = true;
+	else
+	{
+		this->m_bWSA = true;
+	}
 
 	DEBUG_PRINT_CLS("Completed\n");
 }
@@ -136,7 +155,6 @@ void PacketDispatcher::Deinitialize()
 		{
 			DEBUG_PRINT_CLS("Socket closed successfully\n");
 		}
-
 	}
 
 	if (this->m_bWSA)
@@ -144,7 +162,7 @@ void PacketDispatcher::Deinitialize()
 		this->SocketWSACleanup();
 	}
 
-	//Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
+	// UNDONE: Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
 	if (this->m_hDispatcherEvent != INVALID_HANDLE_VALUE)
 		CloseHandle(this->m_hDispatcherEvent);
 

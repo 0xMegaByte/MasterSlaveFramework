@@ -1,11 +1,25 @@
-// MasterFramework.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
+/*
+Copyright (C) 2023 Matan Shitrit (0xMegaByte)
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include <iostream>
 #include "Master.h"
 
 int main()
 {
+	PrintWelcomeMessage();
 	//Create master
 	Master* pMaster = new Master();
 
@@ -16,32 +30,25 @@ int main()
 		//Establish Master-Slave
 		pMaster->CreateDispatcher();
 
-		MasterDispatcher* pmd = (pMaster)->GetDispatcher();
-		if (pmd)
+		MasterDispatcher* pMasterDisptacher = (pMaster)->GetDispatcher();
+		if (pMasterDisptacher)
 		{
-			pmd->Initialize();
-			pmd->SocketSetup(nullptr, 6969);
-			pmd->Start(); //Start Dispatcher Thread
+			pMasterDisptacher->Initialize();
+			pMasterDisptacher->SocketSetup(nullptr, 6969);
+			pMasterDisptacher->Start(); //Start Dispatcher Thread
 
 			DEBUG_PRINT("Master disptacher initialized\n");
 
-			//Create packets out of command or any interface
-			//pMaster->CreatePacket()->QueuePush()
-			//MSFPacket* pPacket = new MSFPacket(EPACKET::PacketType::TaskPacket, 1, EPACKET::CMD::TASK_BEEP, (unsigned char*)"Test");
-
-
 			//TODO: USE DATABASE TO STORE WHICH SLAVE HAS WHAT IP
-
 
 			while (true)
 			{
 				//LOOP UNTIL TERMINATION
 			}
 
-			DELETE_PTR(pmd);
+			DELETE_PTR(pMasterDisptacher);
 		}
+
+		DELETE_PTR(pMaster);
 	}
-
-	
-
 }	

@@ -128,6 +128,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="HandleSlaveConnection.cpp" />
     <ClCompile Include="Master.cpp" />
     <ClCompile Include="MasterDispatcher.cpp" />
     <ClCompile Include="MasterFramework.cpp" />
@@ -138,6 +139,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HandleSlaveConnection.h" />
     <ClInclude Include="Master.h" />
     <ClInclude Include="MasterDispatcher.h" />
   </ItemGroup>
