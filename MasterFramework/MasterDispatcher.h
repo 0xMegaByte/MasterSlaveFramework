@@ -28,8 +28,10 @@ class MasterDispatcher : public PacketDispatcher
 private:
 	unsigned long m_ulTotalSlavesCount;
 public:
+	HANDLE m_hAcceptConnections;
+	DWORD WINAPI AcceptConnections(LPVOID lpv);
 
-	DWORD WINAPI AcceptConnectionThread(LPVOID lpv);
+	HANDLE m_hMonitorConnections;
 	DWORD WINAPI MonitorConnections(LPVOID lpv);
 
 	void SocketSetup(const char* pcIpAddress, const unsigned short usPort);
@@ -52,7 +54,7 @@ public:
 	unsigned long GetTotalSlaveCount();
 	std::mutex m_SlaveCountLock;
 
-	MasterDispatcher() : PacketDispatcher(), m_ulTotalSlavesCount(0) {};
+	MasterDispatcher();
 	~MasterDispatcher() {};
 };
 

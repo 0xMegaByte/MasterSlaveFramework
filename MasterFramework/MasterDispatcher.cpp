@@ -16,10 +16,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "MasterDispatcher.h"
 
-DWORD __stdcall ProcessSlave(LPVOID lpv)
+DWORD WINAPI ProcessSlave(LPVOID lpv)
 {
 	DEBUG_PRINT("Thread running...\n");
-	SlaveConnection* pSlaveConnection = new SlaveConnection(*static_cast<SlaveConnection*>(lpv));
+	//SlaveConnection* pSlaveConnection = new SlaveConnection(*static_cast<SlaveConnection*>(lpv));
+	SlaveConnection* pSlaveConnection = static_cast<SlaveConnection*>(lpv);
 
 	bool bPacketSent = false;
 
@@ -161,13 +162,13 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 							else if (nbytesRecv == 0)
 							{
 								DEBUG_PRINT("Connection with slave(%lu) closing...\n", ulSlaveId);
-								bPacketSent = false;
+								bPacketSent = bStart = false;
 							}
 							else
 							{
 								//fail
 								DEBUG_PRINT("Recv() failed. [WSA:%d]\n", WSA_ERR);
-								bPacketSent = false;
+								bPacketSent = bStart = false;
 							}
 						}
 					}
@@ -184,7 +185,7 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 	return 0;
 }
 
-DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
+DWORD WINAPI MasterDispatcher::AcceptConnections(LPVOID lpv)
 {
 	DEBUG_PRINT_CLS("Entered Thread...\n");
 
@@ -263,7 +264,7 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 										MSFPacket* pTestPacket = new MSFPacket(
 											EPACKET::PacketType::TaskPacket,
 											ulSlaveId,
-											EPACKET::CMD::TASK_BEEP,
+											EPACKET::CMD::TASK_OPEN_CMD,
 											(unsigned char*)"Zbabirat");
 
 										pPacketQueue->push_back(pTestPacket);
@@ -303,6 +304,7 @@ DWORD WINAPI MasterDispatcher::MonitorConnections(LPVOID lpv)
 		{
 			this->m_ConnectionsLock.lock();
 			{
+				DEBUG_PRINT_CLS("Monitoring connections...\n");
 				if (!umConnections.empty())
 				{
 					for (std::unordered_map<SLAVE_ID, SlaveConnection*>::iterator itor = umConnections.begin();
@@ -327,6 +329,7 @@ DWORD WINAPI MasterDispatcher::MonitorConnections(LPVOID lpv)
 						}
 					}
 				}
+				DEBUG_PRINT_CLS("Finished monitoring connections!\n");
 			}
 			this->m_ConnectionsLock.unlock();
 			Sleep(10000); //10 Seconds
@@ -371,6 +374,49 @@ void MasterDispatcher::DecrementTotalSlaveCount()
 unsigned long MasterDispatcher::GetTotalSlaveCount()
 {
 	return this->m_ulTotalSlavesCount;
+}
+
+DWORD WINAPI MonitorConnectionThreadWrapper(LPVOID lpv)
+{
+	if (lpv)
+	{
+		MasterDispatcher* pMasterDispatcher = static_cast<MasterDispatcher*>(lpv);
+		if (pMasterDispatcher)
+		{
+			pMasterDispatcher->MonitorConnections(nullptr);
+		}
+	}
+
+	return 0;
+}
+
+DWORD WINAPI AcceptConnectionThreadWrapper(LPVOID lpv)
+{
+	if (lpv)
+	{
+		MasterDispatcher* pMasterDispatcher = static_cast<MasterDispatcher*>(lpv);
+		if (pMasterDispatcher)
+		{
+			pMasterDispatcher->AcceptConnections(nullptr);
+		}
+	}
+
+	return 0;
+}
+
+MasterDispatcher::MasterDispatcher() : PacketDispatcher(), m_ulTotalSlavesCount(0), m_hMonitorConnections(INVALID_HANDLE_VALUE),
+m_hAcceptConnections(INVALID_HANDLE_VALUE)
+{
+	if (this->m_hMonitorConnections == INVALID_HANDLE_VALUE)
+	{
+		this->m_hMonitorConnections = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MonitorConnectionThreadWrapper, this, 0, 0);
+		DEBUG_PRINT_CLS("Monitor Connection thread created (Handle @0x%p)\n", this->m_hMonitorConnections);
+	}
+	if (this->m_hAcceptConnections == INVALID_HANDLE_VALUE)
+	{
+		this->m_hAcceptConnections = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AcceptConnectionThreadWrapper, this, 0, 0);
+		DEBUG_PRINT_CLS("Accept Connection thread created (Handle @0x%p)\n", this->m_hAcceptConnections);
+	}
 }
 
 void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)

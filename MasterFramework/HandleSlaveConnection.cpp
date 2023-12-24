@@ -69,6 +69,8 @@ SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
 SlaveConnection::~SlaveConnection()
 {
 	//TODO: Clear packet queue gracefully
-	//TODO: Close socket
+
+	if(this->m_socket != INVALID_SOCKET)
+		closesocket(this->m_socket);
 	DELETE_PTR(this->m_pPacketQueueLock);
 }

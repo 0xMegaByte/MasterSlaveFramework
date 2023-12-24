@@ -35,7 +35,7 @@ int main()
 		{
 			pMasterDisptacher->Initialize();
 			pMasterDisptacher->SocketSetup(nullptr, 6969);
-			pMasterDisptacher->Start(); //Start Dispatcher Thread
+			pMasterDisptacher->Start(); //Start Dispatcher Threads
 
 			DEBUG_PRINT("Master disptacher initialized\n");
 
