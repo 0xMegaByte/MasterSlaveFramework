@@ -37,9 +37,7 @@ int main()
 			pMasterDisptacher->SocketSetup(nullptr, 6969);
 			pMasterDisptacher->Start(); //Start Dispatcher Threads
 
-			DEBUG_PRINT("Master disptacher initialized\n");
-
-			//TODO: USE DATABASE TO STORE WHICH SLAVE HAS WHAT IP
+			DEBUG_PRINT("Master disptacher initialized\n");   
 
 			while (true)
 			{

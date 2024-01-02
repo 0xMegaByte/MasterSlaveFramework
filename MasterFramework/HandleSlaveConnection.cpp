@@ -57,7 +57,7 @@ void SlaveConnection::SetThreadFinishedFlag(bool bFinished)
 }
 
 SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
-	SOCKET socket, bool bStart):
+	SOCKET socket, bool bStart) :
 	m_ulSlaveConnectionId(ulSlaveConnectionId),
 	m_socket(socket), m_bStart(bStart)
 {
@@ -68,9 +68,29 @@ SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
 
 SlaveConnection::~SlaveConnection()
 {
-	//TODO: Clear packet queue gracefully
+	if (this->m_pSlavePacketQueue)
+	{
+		MSFPacketQueue& pSlavePacketQueue = *this->m_pSlavePacketQueue;
 
-	if(this->m_socket != INVALID_SOCKET)
+		if (this->m_pPacketQueueLock)
+		{
+			this->m_pPacketQueueLock->lock();
+
+			while (!pSlavePacketQueue.empty())
+			{
+				MSFPacket* pFront = pSlavePacketQueue.front();
+				DELETE_PTR(pFront);
+				pSlavePacketQueue.pop_front();
+			}
+
+			this->m_pPacketQueueLock->unlock();
+
+			DELETE_PTR(this->m_pPacketQueueLock);
+		}
+
+		DELETE_PTR(this->m_pSlavePacketQueue);
+	}
+
+	if (this->m_socket != INVALID_SOCKET)
 		closesocket(this->m_socket);
-	DELETE_PTR(this->m_pPacketQueueLock);
 }

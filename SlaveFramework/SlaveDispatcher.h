@@ -44,7 +44,7 @@ public:
 	void SecureQueuePushBack(MSFPacket* pPacket);
 
 	SlaveDispatcher();
-	~SlaveDispatcher() {}; //TODO:
+	~SlaveDispatcher() {};
 
 	void CreateDispatcherThreads();
 };

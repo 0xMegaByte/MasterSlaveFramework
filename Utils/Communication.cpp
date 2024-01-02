@@ -18,11 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma comment(lib,"Ws2_32.lib")
 
 MSFPacket::MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,
-	unsigned long ulOpCode, unsigned char* pucBuffer)
+	unsigned int unOpCode, unsigned char* pucBuffer)
 {
 	this->m_epacketType = packetType;
 	this->m_ulSlaveId = ulSlaveId;
-	this->m_ulOpCode = ulOpCode;
+	this->m_unOpCode = unOpCode;
 
 	ZeroMemory(this->m_ucBuffer, BUF_LEN);
 
@@ -41,9 +41,9 @@ EPACKET::PacketType MSFPacket::getPacketType()
 	return this->m_epacketType;
 }
 
-unsigned long MSFPacket::getOpCode()
+unsigned int MSFPacket::getOpCode()
 {
-	return this->m_ulOpCode;
+	return this->m_unOpCode;
 }
 
 unsigned char* MSFPacket::getBuffer()
@@ -88,15 +88,15 @@ const char* MSFPacket::PacketTypeToString()
 void MSFPacket::PrintPacket()
 {
 	EPACKET::PacketType packetType = this->m_epacketType;
-	unsigned long ulOpCode = this->m_ulOpCode;
+	unsigned int unOpCode = this->m_unOpCode;
 	unsigned long ulSlaveId = this->m_ulSlaveId;
 
 	unsigned char* pucBuffer = this->m_ucBuffer;
 
 	if (pucBuffer)
 	{
-		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %lu | SlaveId: %lu | Buffer: %s\n",
-			PacketTypeToString(), ulOpCode, ulSlaveId, pucBuffer);
+		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %d | SlaveId: %lu | Buffer: %s\n",
+			PacketTypeToString(), unOpCode, ulSlaveId, pucBuffer);
 	}
 }
 
@@ -172,6 +172,7 @@ void PacketDispatcher::Deinitialize()
 void PacketDispatcher::Start()
 {
 	this->m_bStart = true;
+
 	//Change event to signaled state
 	if (!IsEventStateSignaled(this->m_hDispatcherEvent))
 		SetEvent(this->m_hDispatcherEvent);
@@ -197,17 +198,39 @@ bool PacketDispatcher::IsEventStateSignaled(void* hEvent)
 PacketDispatcher::PacketDispatcher() : m_socket(INVALID_SOCKET),
 m_pservice(nullptr)
 {
-	//ZeroMemory(&this->m_pservice, sizeof(this->m_pservice));
 	ZeroMemory(&this->m_wsaData, sizeof(this->m_wsaData));
 
 	this->m_bWSA = false;
 	this->m_bStart = false;
 
 	this->m_hDispatcherEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
 	DEBUG_PRINT_CLS("Completed\n");
 }
 
 PacketDispatcher::~PacketDispatcher()
 {
+	if (this->m_socket != INVALID_SOCKET)
+	{
+		if (shutdown(this->m_socket, SD_BOTH) == 0)
+		{
+			closesocket(this->m_socket);
+		}			
+	}
+
+	if (this->m_pservice)
+	{
+		freeaddrinfo(this->m_pservice);
+	}
+
+	if (this->m_bWSA)
+	{
+		WSACleanup();
+		this->m_bWSA = false;
+	}
+
+	if (this->m_hDispatcherEvent != INVALID_HANDLE_VALUE)
+		CloseHandle(this->m_hDispatcherEvent);
+
 	DEBUG_PRINT_CLS("Completed\n");
 }

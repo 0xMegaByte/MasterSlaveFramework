@@ -40,8 +40,12 @@ DWORD WINAPI AcceptConnectionsThreadWrapper(LPVOID lpv)
 void Master::CreateDispatcher()
 {
 	if (!this->m_pDispatcher)
+	{
 		if (this->m_pDispatcher = new MasterDispatcher())
+		{
 			DEBUG_PRINT_CLS("Dispatcher created successfully\n");
+		}
+	}
 
 	DEBUG_PRINT("Completed\n");
 }

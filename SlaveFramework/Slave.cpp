@@ -22,18 +22,14 @@ unsigned long Slave::GetSlaveId()
 }
 
 Slave::Slave(unsigned long ulSlaveId) :
-	m_pDispatcher(nullptr)
+	m_pDispatcher(nullptr), m_pTaskExectutor(nullptr)
 {
 	this->m_ulSlaveId = ulSlaveId != ~0ul ? ulSlaveId : ~0ul;
-	this->m_pTaskExectutor = new TaskExecutor();
 }
 Slave::~Slave()
 {
-	//TODO: Slave dtor
-	//this->EmptyTaskQueue();
 	DELETE_PTR(this->m_pTaskExectutor); //call TaskQueue dtor
-	DELETE_PTR(this->m_pDispatcher);
-
+	DELETE_PTR(this->m_pDispatcher);	//call SlaveDispatcher dtor
 }
 
 void Slave::CreateDispatcher()

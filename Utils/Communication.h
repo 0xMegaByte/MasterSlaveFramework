@@ -5,30 +5,37 @@
 
 #define WSA_ERR WSAGetLastError()
 
-namespace EPACKET {
+namespace EPACKET
+{
 	// Enum class for packet types
-	enum class PacketType {
+	enum class PacketType
+	{
 		TaskPacket = 0,
 		ResponsePacket,
 		Acknowledge
 	};
 
-	namespace CMD {
+	enum class CMD 
+	{
 		// Communication setup packet
-		constexpr int MASTER_SLAVE_ACK_CONNECTION = 1000;
-		//constexpr int MASTER_SLAVE_DEINIT_CONNECTION = 1001;
-		constexpr int SLAVE_MASTER_ACK_CONNECTION_RESPONSE = 1002; //response token?
+		MASTER_SLAVE_ACK_CONNECTION = 1000,
+		MASTER_SLAVE_DEINIT_CONNECTION,
+		SLAVE_MASTER_ACK_CONNECTION_RESPONSE //response token?
+	};
 
+	enum class Task
+	{
 		// Tasks enum
-		constexpr int TASK_BEEP = 2000;
-		constexpr int TASK_OPEN_CMD = 2001;
+		TASK_BEEP = 2000,
+		TASK_OPEN_CMD
 
 		// Add more slave's tasks here ...
-	}
+	};
 
-	namespace RESP {
+	enum class RESP
+	{
 		// Response codes
-		constexpr int SLAVE_MASTER_OK_RESPONSE = 3000;
+		SLAVE_MASTER_OK_RESPONSE = 3000
 	};
 }
 
@@ -38,18 +45,18 @@ class MSFPacket						//Not socket but part of the socket
 {
 private:
 	EPACKET::PacketType  m_epacketType;
-	unsigned long m_ulOpCode;			//Task or Response
+	unsigned int m_unOpCode;			//Task or Response
 	unsigned long m_ulSlaveId;			//Slave Id recv/send
 
 	unsigned char m_ucBuffer[BUF_LEN]; //Params
 
 public:
 	MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,
-		unsigned long ulOpCode, unsigned char* pucBuffer);
+		unsigned int unOpCode, unsigned char* pucBuffer);
 	~MSFPacket();
 
 	EPACKET::PacketType getPacketType();
-	unsigned long getOpCode();
+	unsigned int getOpCode();
 	unsigned char* getBuffer();
 	unsigned long getSlaveId();
 

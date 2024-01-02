@@ -58,5 +58,4 @@ public:
 	~MasterDispatcher() {};
 };
 
-//TODO: How to cross examine SlaveThreadHandles and Connections vector
 //Create a graceful / semi-graceful shutdown

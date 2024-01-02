@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 DWORD WINAPI ProcessSlave(LPVOID lpv)
 {
 	DEBUG_PRINT("Thread running...\n");
-	//SlaveConnection* pSlaveConnection = new SlaveConnection(*static_cast<SlaveConnection*>(lpv));
+
 	SlaveConnection* pSlaveConnection = static_cast<SlaveConnection*>(lpv);
 
 	bool bPacketSent = false;
@@ -140,7 +140,7 @@ DWORD WINAPI ProcessSlave(LPVOID lpv)
 
 						if (bPacketSent)
 						{
-							DEBUG_PRINT("Waiting for slave reponse..\n");
+							DEBUG_PRINT("Waiting for slave (%d) reponse..\n",pSlaveConnection->GetConnectionId());
 
 							//Handle Recv after sending | Waiting for the master to send new packet; and the slave to respond
 							nbytesRecv = recv(SlaveSocket, recvBuf, MSFPACKET_SIZE, 0);
@@ -243,7 +243,7 @@ DWORD WINAPI MasterDispatcher::AcceptConnections(LPVOID lpv)
 						MSFPacket* pAckPacket = new MSFPacket(
 							EPACKET::PacketType::Acknowledge,
 							ulSlaveId,
-							EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
+							(unsigned int)EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
 							(unsigned char*)"");
 
 						if (pAckPacket)
@@ -260,12 +260,12 @@ DWORD WINAPI MasterDispatcher::AcceptConnections(LPVOID lpv)
 
 										//Add here packets of your choice to execute upon startup
 
-										////TODO: Test another response for 2nd packet
+										//TODO: Test another response for 2nd packet
 										MSFPacket* pTestPacket = new MSFPacket(
 											EPACKET::PacketType::TaskPacket,
 											ulSlaveId,
-											EPACKET::CMD::TASK_OPEN_CMD,
-											(unsigned char*)"Zbabirat");
+											(unsigned int)EPACKET::Task::TASK_BEEP,
+											(unsigned char*)"SomeData");
 
 										pPacketQueue->push_back(pTestPacket);
 										DEBUG_PRINT_CLS("Pushed test packet\n");
