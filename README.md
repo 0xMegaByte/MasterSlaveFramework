@@ -64,13 +64,13 @@ To add new task a few implementations need to take place in the Slave files and 
 Under ```Communication.h``` file, add a new task id under the ```EPACKET::CMD``` namespace.\
 This addition to the communication engine gives both the master and slave nodes the ability to send\/receive a task packet.
 ```
-namespace EPACKET 
+namespace EPACKET
 {
-	namespace CMD 
-    {
-		constexpr int TASK_BEEP = 2000;
-		constexpr int TASK_OPEN_CMD = 2001;
-	}
+	enum class Task
+	{
+		TASK_BEEP = 2000,
+		TASK_OPEN_CMD
+	};
 }
 ```
 #### Slave Files
