@@ -16,12 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "HandleSlaveConnection.h"
 
-unsigned long SlaveConnection::GetConnectionId()
+unsigned long SlaveConnection::GetConnectionId() const
 {
 	return this->m_ulSlaveConnectionId;
 }
 
-SOCKET SlaveConnection::GetSocket()
+SOCKET SlaveConnection::GetSocket() const
 {
 	return this->m_socket;
 }
@@ -36,7 +36,7 @@ std::mutex* SlaveConnection::GetMSFPacketQueueLock()
 	return this->m_pPacketQueueLock;
 }
 
-bool SlaveConnection::GetStartFlag()
+bool SlaveConnection::GetStartFlag() const 
 {
 	return this->m_bStart;
 }
@@ -46,7 +46,7 @@ void SlaveConnection::SetStartFlag(bool bStart)
 	this->m_bStart = bStart;
 }
 
-bool SlaveConnection::GetThreadFinishedFlag()
+bool SlaveConnection::GetThreadFinishedFlag() const
 {
 	return this->m_bIsThreadFinished;
 }
@@ -57,7 +57,7 @@ void SlaveConnection::SetThreadFinishedFlag(bool bFinished)
 }
 
 SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
-	SOCKET socket, bool bStart):
+	SOCKET socket, bool bStart) :
 	m_ulSlaveConnectionId(ulSlaveConnectionId),
 	m_socket(socket), m_bStart(bStart)
 {
@@ -68,7 +68,30 @@ SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
 
 SlaveConnection::~SlaveConnection()
 {
-	//TODO: Clear packet queue gracefully
-	//TODO: Close socket
-	DELETE_PTR(this->m_pPacketQueueLock);
+	//Empty and gracefully delete all packets from the deque
+	if (this->m_pSlavePacketQueue)
+	{
+		MSFPacketQueue& pSlavePacketQueue = *this->m_pSlavePacketQueue;
+
+		if (this->m_pPacketQueueLock)
+		{
+			this->m_pPacketQueueLock->lock();
+
+			while (!pSlavePacketQueue.empty())
+			{
+				MSFPacket* pFront = pSlavePacketQueue.front();
+				DELETE_PTR(pFront);
+				pSlavePacketQueue.pop_front();
+			}
+
+			this->m_pPacketQueueLock->unlock();
+
+			DELETE_PTR(this->m_pPacketQueueLock);
+		}
+
+		DELETE_PTR(this->m_pSlavePacketQueue);
+	}
+
+	if (this->m_socket != INVALID_SOCKET)
+		closesocket(this->m_socket);
 }

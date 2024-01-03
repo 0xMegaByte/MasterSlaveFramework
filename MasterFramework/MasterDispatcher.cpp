@@ -16,10 +16,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "MasterDispatcher.h"
 
-DWORD __stdcall ProcessSlave(LPVOID lpv)
+DWORD WINAPI ProcessSlave(LPVOID lpv)
 {
 	DEBUG_PRINT("Thread running...\n");
-	SlaveConnection* pSlaveConnection = new SlaveConnection(*static_cast<SlaveConnection*>(lpv));
+
+	SlaveConnection* pSlaveConnection = static_cast<SlaveConnection*>(lpv);
 
 	bool bPacketSent = false;
 
@@ -139,7 +140,7 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 
 						if (bPacketSent)
 						{
-							DEBUG_PRINT("Waiting for slave reponse..\n");
+							DEBUG_PRINT("Waiting for slave (%d) reponse..\n",pSlaveConnection->GetConnectionId());
 
 							//Handle Recv after sending | Waiting for the master to send new packet; and the slave to respond
 							nbytesRecv = recv(SlaveSocket, recvBuf, MSFPACKET_SIZE, 0);
@@ -161,13 +162,13 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 							else if (nbytesRecv == 0)
 							{
 								DEBUG_PRINT("Connection with slave(%lu) closing...\n", ulSlaveId);
-								bPacketSent = false;
+								bPacketSent = bStart = false;
 							}
 							else
 							{
 								//fail
 								DEBUG_PRINT("Recv() failed. [WSA:%d]\n", WSA_ERR);
-								bPacketSent = false;
+								bPacketSent = bStart = false;
 							}
 						}
 					}
@@ -180,11 +181,10 @@ DWORD __stdcall ProcessSlave(LPVOID lpv)
 		pSlaveConnection->SetThreadFinishedFlag(true);
 
 	DEBUG_PRINT("Existing Thread...\n");
-	//TODO: Handle graceful connection shutdown outside the thread
 	return 0;
 }
 
-DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
+DWORD WINAPI MasterDispatcher::AcceptConnections(LPVOID lpv)
 {
 	DEBUG_PRINT_CLS("Entered Thread...\n");
 
@@ -242,7 +242,7 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 						MSFPacket* pAckPacket = new MSFPacket(
 							EPACKET::PacketType::Acknowledge,
 							ulSlaveId,
-							EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
+							(unsigned int)EPACKET::CMD::MASTER_SLAVE_ACK_CONNECTION,
 							(unsigned char*)"");
 
 						if (pAckPacket)
@@ -259,12 +259,12 @@ DWORD WINAPI MasterDispatcher::AcceptConnectionThread(LPVOID lpv)
 
 										//Add here packets of your choice to execute upon startup
 
-										////TODO: Test another response for 2nd packet
+										//TODO: Test another response for 2nd packet
 										MSFPacket* pTestPacket = new MSFPacket(
 											EPACKET::PacketType::TaskPacket,
 											ulSlaveId,
-											EPACKET::CMD::TASK_BEEP,
-											(unsigned char*)"Zbabirat");
+											(unsigned int)EPACKET::Task::TASK_BEEP,
+											(unsigned char*)"SomeData");
 
 										pPacketQueue->push_back(pTestPacket);
 										DEBUG_PRINT_CLS("Pushed test packet\n");
@@ -303,6 +303,7 @@ DWORD WINAPI MasterDispatcher::MonitorConnections(LPVOID lpv)
 		{
 			this->m_ConnectionsLock.lock();
 			{
+				DEBUG_PRINT_CLS("Monitoring connections...\n");
 				if (!umConnections.empty())
 				{
 					for (std::unordered_map<SLAVE_ID, SlaveConnection*>::iterator itor = umConnections.begin();
@@ -327,6 +328,7 @@ DWORD WINAPI MasterDispatcher::MonitorConnections(LPVOID lpv)
 						}
 					}
 				}
+				DEBUG_PRINT_CLS("Finished monitoring connections!\n");
 			}
 			this->m_ConnectionsLock.unlock();
 			Sleep(10000); //10 Seconds
@@ -368,9 +370,52 @@ void MasterDispatcher::DecrementTotalSlaveCount()
 	this->m_SlaveCountLock.unlock();
 }
 
-unsigned long MasterDispatcher::GetTotalSlaveCount()
+unsigned long MasterDispatcher::GetTotalSlaveCount() const
 {
 	return this->m_ulTotalSlavesCount;
+}
+
+DWORD WINAPI MonitorConnectionThreadWrapper(LPVOID lpv)
+{
+	if (lpv)
+	{
+		MasterDispatcher* pMasterDispatcher = static_cast<MasterDispatcher*>(lpv);
+		if (pMasterDispatcher)
+		{
+			pMasterDispatcher->MonitorConnections(nullptr);
+		}
+	}
+
+	return 0;
+}
+
+DWORD WINAPI AcceptConnectionThreadWrapper(LPVOID lpv)
+{
+	if (lpv)
+	{
+		MasterDispatcher* pMasterDispatcher = static_cast<MasterDispatcher*>(lpv);
+		if (pMasterDispatcher)
+		{
+			pMasterDispatcher->AcceptConnections(nullptr);
+		}
+	}
+
+	return 0;
+}
+
+MasterDispatcher::MasterDispatcher() : PacketDispatcher(), m_ulTotalSlavesCount(0), m_hMonitorConnections(INVALID_HANDLE_VALUE),
+m_hAcceptConnections(INVALID_HANDLE_VALUE)
+{
+	if (this->m_hMonitorConnections == INVALID_HANDLE_VALUE)
+	{
+		this->m_hMonitorConnections = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MonitorConnectionThreadWrapper, this, 0, 0);
+		DEBUG_PRINT_CLS("Monitor Connection thread created (Handle @0x%p)\n", this->m_hMonitorConnections);
+	}
+	if (this->m_hAcceptConnections == INVALID_HANDLE_VALUE)
+	{
+		this->m_hAcceptConnections = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)AcceptConnectionThreadWrapper, this, 0, 0);
+		DEBUG_PRINT_CLS("Accept Connection thread created (Handle @0x%p)\n", this->m_hAcceptConnections);
+	}
 }
 
 void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short usPort)
@@ -404,7 +449,7 @@ void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short
 			{
 				DEBUG_PRINT("Error at socket(): %ld\n", WSA_ERR);
 				this->SocketWSACleanup();
-				//TODO: Remember to free addrinfo using (freeaddrinfo(m_service))
+				//TODO: free addrinfo using (freeaddrinfo(m_service))
 			}
 
 			if (this->m_socket)

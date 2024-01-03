@@ -30,17 +30,17 @@ private:
 
 public:
 	
-	unsigned long GetConnectionId();
+	unsigned long GetConnectionId() const;
 
-	SOCKET GetSocket();
+	SOCKET GetSocket() const;
 
 	MSFPacketQueue* GetMSFPacketQueue();
 	std::mutex* GetMSFPacketQueueLock();
 
-	bool GetStartFlag();
+	bool GetStartFlag() const;
 	void SetStartFlag(bool bStart);
 
-	bool GetThreadFinishedFlag();
+	bool GetThreadFinishedFlag() const;
 	void SetThreadFinishedFlag(bool bFinished);
 
 	SlaveConnection(unsigned long ulSlaveConnectionId,

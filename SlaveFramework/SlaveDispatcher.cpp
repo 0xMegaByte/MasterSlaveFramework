@@ -21,9 +21,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 {
 	DEBUG_PRINT_CLS("Entered thread\n");
 
-	TaskExecutor* pTaskExecutor = static_cast<TaskExecutor*>(lpv);
-
-	if (pTaskExecutor)
+	if (TaskExecutor* pTaskExecutor = (TaskExecutor*)this->GetTaskExecutor())
 	{
 		if (WaitForSingleObject(this->m_hDispatcherEvent, INFINITE) == WAIT_OBJECT_0)
 		{
@@ -68,8 +66,9 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 
 											MSFPacket* pACKPacket =
 												new MSFPacket(EPACKET::PacketType::ResponsePacket,
-													pPacket->getSlaveId(), EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
+													pPacket->getSlaveId(), (unsigned int)EPACKET::RESP::SLAVE_MASTER_OK_RESPONSE,
 													(unsigned char*)buf);
+
 											if (pACKPacket)
 											{
 												this->SecureQueuePushBack(pACKPacket);
@@ -82,7 +81,7 @@ DWORD __stdcall SlaveDispatcher::ReceiveThread(LPVOID lpv)
 										case EPACKET::PacketType::TaskPacket:
 										{
 											//Push new task to taskexecutor
-											Task* pTask = new Task((ETASK::Task)pPacket->getOpCode());
+											Task* pTask = new Task((EPACKET::Task)pPacket->getOpCode());
 											if (pTask)
 											{
 												pTaskExecutor->SecurePushBack(pTask);
@@ -144,7 +143,8 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 					{
 						DEBUG_PRINT("Packet queue size: %llu.\n", pPacketQueue->size());
 
-						//TODO: Add lock
+						this->m_PacketQueueLock.lock();
+
 						MSFPacket* pPacket = pPacketQueue->front();
 
 						if (pPacket)
@@ -162,14 +162,17 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 								DEBUG_PRINT_CLS("Failed to send packet! [WSA:%d]\n", WSA_ERR);
 							}
 
-							this->SecureQueuePopFront();
+							pPacketQueue->pop_front();
 							DELETE_PTR(pPacket);
 						}
+
+						this->m_PacketQueueLock.unlock();
 					}
 				}
 			}
 		}
 	}
+
 	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
@@ -189,7 +192,9 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 		// Resolve the server address and port
 		if (pcIpAddress)
 		{
-			if (int res = getaddrinfo(pcIpAddress, "6969", &hints, &this->m_pservice) != 0)
+			std::string sPort = std::to_string(usPort);
+
+			if (int res = getaddrinfo(pcIpAddress, sPort.c_str(), &hints, &this->m_pservice) != 0)
 			{
 				DEBUG_PRINT("ERROR: gettaddrinfo code: %d | WSA: %d\n", res, WSA_ERR);
 				this->SocketWSACleanup();
@@ -206,7 +211,6 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 				{
 					DEBUG_PRINT("Error at socket(): %ld\n", WSA_ERR);
 					this->SocketWSACleanup();
-					//TODO: Remember to free addrinfo using (freeaddrinfo(m_service))
 				}
 
 				if (this->m_socket != INVALID_SOCKET)
@@ -222,14 +226,9 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 	}
 }
 
-void SlaveDispatcher::Connect(void* pTaskExecutor)
+void SlaveDispatcher::Connect()
 {
-	if (!pTaskExecutor)
-	{
-		DEBUG_PRINT_CLS("Invalid Task Executor pointer! (%p)\n", pTaskExecutor);
-
-	}
-	else if (this->m_bWSA)
+	if (this->m_bWSA)
 	{
 		int nConnectRes = SOCKET_ERROR;
 		int nRetriesLeft = 10;
@@ -270,7 +269,7 @@ void SlaveDispatcher::Connect(void* pTaskExecutor)
 				DEBUG_PRINT("Connected to server!\n");
 				this->m_bConnected = true;
 
-				this->CreateDispatcherThreads(pTaskExecutor);
+				//this->CreateDispatcherThreads();
 
 				break;
 			}
@@ -278,19 +277,41 @@ void SlaveDispatcher::Connect(void* pTaskExecutor)
 	}
 }
 
-bool SlaveDispatcher::IsDispatcherConnected()
+void SlaveDispatcher::AssignTaskExecutor(void* pTaskExecutor)
+{
+	this->m_pTaskExecutor = pTaskExecutor;
+}
+
+void* SlaveDispatcher::GetTaskExecutor()
+{
+	return this->m_pTaskExecutor;
+}
+
+bool SlaveDispatcher::IsDispatcherConnected() const
 {
 	return this->m_bConnected;
 }
 
 void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
 {
-	this->m_PacketQueueLock.lock();
+	if (this->m_pPacketQueue && pPacket)
 	{
-		if (pPacket)
+		this->m_PacketQueueLock.lock();
+		{
 			this->m_pPacketQueue->push_back(pPacket);
+		}
+		this->m_PacketQueueLock.unlock();
 	}
-	this->m_PacketQueueLock.unlock();
+}
+
+SlaveDispatcher::SlaveDispatcher() :
+	PacketDispatcher(), m_bConnected(false), m_pTaskExecutor(nullptr), m_pPacketQueue(nullptr),
+	m_hReceiveThread(INVALID_HANDLE_VALUE), m_hSendThread(INVALID_HANDLE_VALUE)
+{
+	if (!this->m_pPacketQueue)
+	{
+		this->m_pPacketQueue = new MSFPacketQueue();
+	}
 }
 
 struct ThreadArgs
@@ -301,70 +322,35 @@ struct ThreadArgs
 
 DWORD WINAPI ReceiveThreadWrapper(LPVOID lpv)
 {
-	ThreadArgs* pThreadArgs = static_cast<ThreadArgs*>(lpv);
-
-	if (pThreadArgs)
+	if (lpv)
 	{
-		SlaveDispatcher* pSlaveDispatcher = 
-			static_cast<SlaveDispatcher*>(pThreadArgs->m_pSlaveDisptacher);
-		if (pSlaveDispatcher && pThreadArgs->m_pTaskExecutor)
+		if (SlaveDispatcher* pSlaveDispatcher = static_cast<SlaveDispatcher*>(lpv))
 		{
-			void* pTaskExecutor = pThreadArgs->m_pTaskExecutor;
-			return pSlaveDispatcher->ReceiveThread(pTaskExecutor);
+			return pSlaveDispatcher->ReceiveThread(nullptr);
 		}
 	}
+
 	return -1;
 }
 
 DWORD WINAPI SendThreadWrapper(LPVOID lpv)
 {
-	/*ThreadArgs* pThreadArgs = static_cast<ThreadArgs*>(lpv);
-	if (pThreadArgs)
+	if (lpv)
 	{
-		SlaveDispatcher* pSlaveDispatcher =
-			static_cast<SlaveDispatcher*>(pThreadArgs->m_pSlaveDisptacher);
-
-		if (pSlaveDispatcher && pThreadArgs->m_pTaskExecutor)
+		if (SlaveDispatcher* pSlaveDispatcher = static_cast<SlaveDispatcher*>(lpv))
 		{
-			void* pTaskExecutor = pThreadArgs->m_pTaskExecutor;
-			return pSlaveDispatcher->SendThread(pTaskExecutor);
+			return pSlaveDispatcher->SendThread(nullptr);
 		}
-	}*/
-
-	SlaveDispatcher* psd = static_cast<SlaveDispatcher*>(lpv);
-	return psd->SendThread(nullptr);
+	}
 
 	return -1;
 }
 
-void SlaveDispatcher::CreateDispatcherThreads(void* pTaskExecutor)
+void SlaveDispatcher::CreateDispatcherThreads()
 {
-	if (pTaskExecutor)
-	{
-		ThreadArgs _ThreadArgs
-		{
-			this,
-			pTaskExecutor
-		};
+	if (this->m_hReceiveThread == INVALID_HANDLE_VALUE)
+		this->m_hReceiveThread = CreateThread(0, 0, ReceiveThreadWrapper, this, 0, 0);
 
-		if (this->m_hReceiveThread == INVALID_HANDLE_VALUE)
-			this->m_hReceiveThread = CreateThread(0, 0, ReceiveThreadWrapper, &_ThreadArgs, 0, 0);
-
-		if (this->m_hSendThread == INVALID_HANDLE_VALUE)
-			this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
-	}
-	else
-	{
-		DEBUG_PRINT_CLS("Invalid TaskExecutor pointer! (%p)\n", pTaskExecutor);
-	}
-
-}
-
-void SlaveDispatcher::SecureQueuePopFront()
-{
-	this->m_PacketQueueLock.lock();
-	{
-		this->m_pPacketQueue->pop_front();
-	}
-	this->m_PacketQueueLock.unlock();
+	if (this->m_hSendThread == INVALID_HANDLE_VALUE)
+		this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
 }

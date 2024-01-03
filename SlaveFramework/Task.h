@@ -20,30 +20,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 typedef DWORD(__stdcall* TaskCallbackThread)(void*);
 #define TASK_CALLBACK_THREAD( Name ) DWORD __stdcall Name(void* lpv)
 
-namespace ETASK
-{
-	enum class Task
-	{
-		TASK_BEEP = 2000,
-		TASK_OPEN_CMD
-	};
-}
 
-class Task {
+class Task
+{
 private:
-	ETASK::Task m_TaskId;		
+	EPACKET::Task m_TaskId;
 	unsigned int m_uiBufferSize;	//Params len
 	unsigned char* m_pucBuffer;		//Params data
 
 public:
-	ETASK::Task GetTaskId();
+	EPACKET::Task GetTaskId() const;
 
-	Task(ETASK::Task m_TaskId); //TODO: Handle params
+	Task(EPACKET::Task m_TaskId); //TODO: Handle params
 	~Task();
 };
 
 typedef std::deque<Task*> TaskQueue;
-typedef std::unordered_map<ETASK::Task, TaskCallbackThread> TaskCallbacks;
+typedef std::unordered_map<EPACKET::Task, TaskCallbackThread> TaskCallbacks;
 
 class TaskExecutor
 {
@@ -51,7 +44,6 @@ private:
 	TaskQueue* m_pTaskQueue;
 	std::mutex m_TaskQueueLock;
 
-	//Tasks-Callbacks list
 	TaskCallbacks* m_pTaskCallbacks;
 	std::mutex m_TaskCallbacksLock;
 
@@ -59,12 +51,10 @@ public:
 
 	//Handle Task Queue
 	void SecurePushBack(Task* pTask);
-	void SecurePopFirst();
-	void SecurePopDelete();
-	Task* SecureGetFirst();
+	void EmptyTaskQueue();
 
 	//Handle Task Callback map
-	
+
 	void MakeTaskCallbacks();
 	void ExecuteTasks();
 

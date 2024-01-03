@@ -28,8 +28,10 @@ class MasterDispatcher : public PacketDispatcher
 private:
 	unsigned long m_ulTotalSlavesCount;
 public:
+	HANDLE m_hAcceptConnections;
+	DWORD WINAPI AcceptConnections(LPVOID lpv);
 
-	DWORD WINAPI AcceptConnectionThread(LPVOID lpv);
+	HANDLE m_hMonitorConnections;
 	DWORD WINAPI MonitorConnections(LPVOID lpv);
 
 	void SocketSetup(const char* pcIpAddress, const unsigned short usPort);
@@ -49,12 +51,11 @@ public:
 
 	void IncrementTotalSlaveCount();
 	void DecrementTotalSlaveCount();
-	unsigned long GetTotalSlaveCount();
+	unsigned long GetTotalSlaveCount() const;
 	std::mutex m_SlaveCountLock;
 
-	MasterDispatcher() : PacketDispatcher(), m_ulTotalSlavesCount(0) {};
+	MasterDispatcher();
 	~MasterDispatcher() {};
 };
 
-//TODO: How to cross examine SlaveThreadHandles and Connections vector
 //Create a graceful / semi-graceful shutdown

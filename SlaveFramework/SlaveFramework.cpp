@@ -20,13 +20,13 @@ int main()
 {
 	PrintWelcomeMessage();
 
-	//Create slave
-	if (Slave* pSlave = new Slave(1);)
+	if (Slave* pSlave = new Slave(1))
 	{
 		DEBUG_PRINT("Slave started\n");
-		//Establish Slave-Master connection
+
 		pSlave->CreateDispatcher();
 		pSlave->CreateTaskExecutor();
+
 		SlaveDispatcher* pSlaveDispatcher = pSlave->GetDispatcher();
 		TaskExecutor* pTaskExecutor = pSlave->GetTaskExecutor();
 
@@ -44,26 +44,27 @@ int main()
 
 		pSlaveDispatcher->Initialize();
 		pSlaveDispatcher->SocketSetup("127.0.0.1", 6969);
+		pSlaveDispatcher->AssignTaskExecutor(pTaskExecutor);
+		pSlaveDispatcher->CreateDispatcherThreads();
+		
+		pSlaveDispatcher->Connect();
 
-		//TODO: Fix this awful abstraction
-		pSlaveDispatcher->Connect(pTaskExecutor);
-
-		if (pSlaveDispatcher->IsDispatcherConnected())
+		if (!pSlaveDispatcher->IsDispatcherConnected())
 		{
-			pSlaveDispatcher->Start();
+			DEBUG_PRINT("Dispatcher could not connect to master!!\n Exiting..");
+			return -1;
 		}
+
+		pSlaveDispatcher->Start();
 
 		pTaskExecutor->MakeTaskCallbacks();
 
-		//note: could be fixed with its own thread
 		while (true)
 		{
 			pTaskExecutor->ExecuteTasks();
 			Sleep(1000);
 		}
 
-		DELETE_PTR(pTaskExecutor);
-		DELETE_PTR(pSlaveDispatcher);
 		DELETE_PTR(pSlave);
 	}
 

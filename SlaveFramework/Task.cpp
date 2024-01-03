@@ -16,12 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "Task.h"
 
-ETASK::Task Task::GetTaskId()
+EPACKET::Task Task::GetTaskId() const
 {
 	return this->m_TaskId;
 }
 
-Task::Task(ETASK::Task TaskId)
+Task::Task(EPACKET::Task TaskId)
 {
 	this->m_TaskId = TaskId;
 	this->m_uiBufferSize = BUF_LEN;
@@ -45,48 +45,22 @@ void TaskExecutor::SecurePushBack(Task* pTask)
 	}
 }
 
-void TaskExecutor::SecurePopFirst()
+void TaskExecutor::EmptyTaskQueue()
 {
-	if (this->m_pTaskQueue)
+	if (TaskQueue* pTaskQueue = this->m_pTaskQueue)
 	{
 		this->m_TaskQueueLock.lock();
+
+		while (!pTaskQueue->empty())
 		{
-			this->m_pTaskQueue->pop_front();
+			Task* pFront = pTaskQueue->front();
+
+			DELETE_PTR(pFront);
+			pTaskQueue->pop_front();
 		}
+
 		this->m_TaskQueueLock.unlock();
 	}
-}
-
-void TaskExecutor::SecurePopDelete()
-{
-	if (this->m_pTaskQueue)
-	{
-		this->m_TaskQueueLock.lock();
-		{
-			Task* pTask = this->m_pTaskQueue->front();
-
-			this->m_pTaskQueue->pop_front();
-			DELETE_PTR(pTask);
-
-		}
-		this->m_TaskQueueLock.unlock();
-	}
-}
-
-Task* TaskExecutor::SecureGetFirst()
-{
-	Task* pRetval = nullptr;
-
-	if (this->m_pTaskQueue)
-	{
-		this->m_TaskQueueLock.lock();
-		{
-			pRetval = this->m_pTaskQueue->front();
-		}
-		this->m_TaskQueueLock.unlock();
-	}
-
-	return pRetval;
 }
 
 TASK_CALLBACK_THREAD(MakeABeep)
@@ -107,8 +81,8 @@ void TaskExecutor::MakeTaskCallbacks()
 	{
 		TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
 
-		TaskCallbacks.insert({ ETASK::Task::TASK_BEEP,&MakeABeep });
-		TaskCallbacks.insert({ ETASK::Task::TASK_OPEN_CMD,&OpenCMD });
+		TaskCallbacks.insert({ EPACKET::Task::TASK_BEEP,&MakeABeep });
+		TaskCallbacks.insert({ EPACKET::Task::TASK_OPEN_CMD,&OpenCMD });
 
 		//Insert here more tasks
 	}
@@ -116,26 +90,34 @@ void TaskExecutor::MakeTaskCallbacks()
 
 void TaskExecutor::ExecuteTasks() //TODO: Make in the main or create separated thread
 {
-	if (this->m_pTaskQueue)
+	if (TaskQueue* pTaskQueue = this->m_pTaskQueue)
 	{
-		if (!this->m_pTaskQueue->empty())
+		if (!pTaskQueue->empty())
 		{
-			//TODO: Fix locking
-			Task* pTask = SecureGetFirst();
 
-			if (pTask)
+			this->m_TaskQueueLock.lock();
+
+			if (Task* pTask = pTaskQueue->front())
 			{
 				if (this->m_pTaskCallbacks)
 				{
 					TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
 
-					TaskCallbackThread Callback = (*TaskCallbacks.find(pTask->GetTaskId())).second;
+					TaskCallbacks::iterator TaskItor = TaskCallbacks.find(pTask->GetTaskId());
 
-					CreateThread(0, 0, Callback, nullptr, 0, 0);
+					if (TaskItor != TaskCallbacks.end())
+					{
+						TaskCallbackThread Callback = (*TaskItor).second;
 
+						CreateThread(0, 0, Callback, nullptr, 0, 0);
+					}
 				}
-				SecurePopDelete();
+
+				pTaskQueue->pop_front();
+				DELETE_PTR(pTask);
 			}
+
+			this->m_TaskQueueLock.unlock();
 		}
 	}
 }
@@ -148,6 +130,6 @@ TaskExecutor::TaskExecutor() : m_pTaskQueue(nullptr), m_pTaskCallbacks(nullptr)
 
 TaskExecutor::~TaskExecutor()
 {
-	//TODO: Empty & destory task in queue
+	this->EmptyTaskQueue();
 	DELETE_PTR(this->m_pTaskQueue);
 }

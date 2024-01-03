@@ -42,5 +42,5 @@ public:
 	TaskExecutor* GetTaskExecutor();
 
 	//Utils
-	unsigned long GetSlaveId();
+	unsigned long GetSlaveId() const;
 };

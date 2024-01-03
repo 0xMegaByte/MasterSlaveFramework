@@ -21,9 +21,6 @@ class Master
 {
 private:
 	MasterDispatcher* m_pDispatcher; //Includes PacketQueue
-
-	void* m_hAcceptConnections;
-	
 public:
 
 	//Handle Dispatcher
