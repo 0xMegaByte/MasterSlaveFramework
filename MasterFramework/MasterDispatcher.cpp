@@ -181,7 +181,6 @@ DWORD WINAPI ProcessSlave(LPVOID lpv)
 		pSlaveConnection->SetThreadFinishedFlag(true);
 
 	DEBUG_PRINT("Existing Thread...\n");
-	//TODO: Handle graceful connection shutdown outside the thread
 	return 0;
 }
 
@@ -371,7 +370,7 @@ void MasterDispatcher::DecrementTotalSlaveCount()
 	this->m_SlaveCountLock.unlock();
 }
 
-unsigned long MasterDispatcher::GetTotalSlaveCount()
+unsigned long MasterDispatcher::GetTotalSlaveCount() const
 {
 	return this->m_ulTotalSlavesCount;
 }
@@ -450,7 +449,7 @@ void MasterDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short
 			{
 				DEBUG_PRINT("Error at socket(): %ld\n", WSA_ERR);
 				this->SocketWSACleanup();
-				//TODO: Remember to free addrinfo using (freeaddrinfo(m_service))
+				//TODO: free addrinfo using (freeaddrinfo(m_service))
 			}
 
 			if (this->m_socket)

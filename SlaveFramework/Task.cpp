@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "Task.h"
 
-EPACKET::Task Task::GetTaskId()
+EPACKET::Task Task::GetTaskId() const
 {
 	return this->m_TaskId;
 }
@@ -43,50 +43,6 @@ void TaskExecutor::SecurePushBack(Task* pTask)
 		}
 		this->m_TaskQueueLock.unlock();
 	}
-}
-
-void TaskExecutor::SecurePopFirst()
-{
-	if (this->m_pTaskQueue)
-	{
-		this->m_TaskQueueLock.lock();
-		{
-			this->m_pTaskQueue->pop_front();
-		}
-		this->m_TaskQueueLock.unlock();
-	}
-}
-
-void TaskExecutor::SecurePopDelete()
-{
-	if (this->m_pTaskQueue)
-	{
-		this->m_TaskQueueLock.lock();
-		{
-			Task* pTask = this->m_pTaskQueue->front();
-
-			this->m_pTaskQueue->pop_front();
-			DELETE_PTR(pTask);
-
-		}
-		this->m_TaskQueueLock.unlock();
-	}
-}
-
-Task* TaskExecutor::SecureGetFirst()
-{
-	Task* pRetval = nullptr;
-
-	if (this->m_pTaskQueue)
-	{
-		this->m_TaskQueueLock.lock();
-		{
-			pRetval = this->m_pTaskQueue->front();
-		}
-		this->m_TaskQueueLock.unlock();
-	}
-
-	return pRetval;
 }
 
 void TaskExecutor::EmptyTaskQueue()
@@ -134,18 +90,19 @@ void TaskExecutor::MakeTaskCallbacks()
 
 void TaskExecutor::ExecuteTasks() //TODO: Make in the main or create separated thread
 {
-	if (this->m_pTaskQueue)
+	if (TaskQueue* pTaskQueue = this->m_pTaskQueue)
 	{
-		if (!this->m_pTaskQueue->empty())
+		if (!pTaskQueue->empty())
 		{
-			//TODO: Fix locking
-			Task* pTask = SecureGetFirst();
 
-			if (pTask)
+			this->m_TaskQueueLock.lock();
+
+			if (Task* pTask = pTaskQueue->front())
 			{
 				if (this->m_pTaskCallbacks)
 				{
 					TaskCallbacks& TaskCallbacks = *this->m_pTaskCallbacks;
+
 					TaskCallbacks::iterator TaskItor = TaskCallbacks.find(pTask->GetTaskId());
 
 					if (TaskItor != TaskCallbacks.end())
@@ -155,8 +112,12 @@ void TaskExecutor::ExecuteTasks() //TODO: Make in the main or create separated t
 						CreateThread(0, 0, Callback, nullptr, 0, 0);
 					}
 				}
-				SecurePopDelete();
+
+				pTaskQueue->pop_front();
+				DELETE_PTR(pTask);
 			}
+
+			this->m_TaskQueueLock.unlock();
 		}
 	}
 }

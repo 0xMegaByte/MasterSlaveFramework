@@ -16,12 +16,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "HandleSlaveConnection.h"
 
-unsigned long SlaveConnection::GetConnectionId()
+unsigned long SlaveConnection::GetConnectionId() const
 {
 	return this->m_ulSlaveConnectionId;
 }
 
-SOCKET SlaveConnection::GetSocket()
+SOCKET SlaveConnection::GetSocket() const
 {
 	return this->m_socket;
 }
@@ -36,7 +36,7 @@ std::mutex* SlaveConnection::GetMSFPacketQueueLock()
 	return this->m_pPacketQueueLock;
 }
 
-bool SlaveConnection::GetStartFlag()
+bool SlaveConnection::GetStartFlag() const 
 {
 	return this->m_bStart;
 }
@@ -46,7 +46,7 @@ void SlaveConnection::SetStartFlag(bool bStart)
 	this->m_bStart = bStart;
 }
 
-bool SlaveConnection::GetThreadFinishedFlag()
+bool SlaveConnection::GetThreadFinishedFlag() const
 {
 	return this->m_bIsThreadFinished;
 }
@@ -68,6 +68,7 @@ SlaveConnection::SlaveConnection(unsigned long ulSlaveConnectionId,
 
 SlaveConnection::~SlaveConnection()
 {
+	//Empty and gracefully delete all packets from the deque
 	if (this->m_pSlavePacketQueue)
 	{
 		MSFPacketQueue& pSlavePacketQueue = *this->m_pSlavePacketQueue;

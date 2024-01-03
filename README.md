@@ -116,8 +116,3 @@ This project was created by Matan Shitrit [@0xMegaByte](https://twitter.com/0xMe
 ## License
 
 This project is licensed under the [GPL-3.0](https://opensource.org/license/gpl-3-0/). See the LICENSE file for more information.
-
-
-
-
-

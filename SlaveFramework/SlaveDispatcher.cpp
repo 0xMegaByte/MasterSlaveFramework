@@ -143,7 +143,8 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 					{
 						DEBUG_PRINT("Packet queue size: %llu.\n", pPacketQueue->size());
 
-						//TODO: Add lock
+						this->m_PacketQueueLock.lock();
+
 						MSFPacket* pPacket = pPacketQueue->front();
 
 						if (pPacket)
@@ -161,14 +162,17 @@ DWORD __stdcall SlaveDispatcher::SendThread(LPVOID lpv)
 								DEBUG_PRINT_CLS("Failed to send packet! [WSA:%d]\n", WSA_ERR);
 							}
 
-							this->SecureQueuePopFront();
+							pPacketQueue->pop_front();
 							DELETE_PTR(pPacket);
 						}
+
+						this->m_PacketQueueLock.unlock();
 					}
 				}
 			}
 		}
 	}
+
 	DEBUG_PRINT_CLS("Exisiting thread..\n");
 	return 0;
 }
@@ -207,7 +211,6 @@ void SlaveDispatcher::SocketSetup(const char* pcIpAddress, const unsigned short 
 				{
 					DEBUG_PRINT("Error at socket(): %ld\n", WSA_ERR);
 					this->SocketWSACleanup();
-					//TODO: Remember to free addrinfo using (freeaddrinfo(m_service))
 				}
 
 				if (this->m_socket != INVALID_SOCKET)
@@ -284,19 +287,21 @@ void* SlaveDispatcher::GetTaskExecutor()
 	return this->m_pTaskExecutor;
 }
 
-bool SlaveDispatcher::IsDispatcherConnected()
+bool SlaveDispatcher::IsDispatcherConnected() const
 {
 	return this->m_bConnected;
 }
 
 void SlaveDispatcher::SecureQueuePushBack(MSFPacket* pPacket)
 {
-	this->m_PacketQueueLock.lock();
+	if (this->m_pPacketQueue && pPacket)
 	{
-		if (pPacket)
+		this->m_PacketQueueLock.lock();
+		{
 			this->m_pPacketQueue->push_back(pPacket);
+		}
+		this->m_PacketQueueLock.unlock();
 	}
-	this->m_PacketQueueLock.unlock();
 }
 
 SlaveDispatcher::SlaveDispatcher() :
@@ -348,13 +353,4 @@ void SlaveDispatcher::CreateDispatcherThreads()
 
 	if (this->m_hSendThread == INVALID_HANDLE_VALUE)
 		this->m_hSendThread = CreateThread(0, 0, SendThreadWrapper, this, 0, 0);
-}
-
-void SlaveDispatcher::SecureQueuePopFront()
-{
-	this->m_PacketQueueLock.lock();
-	{
-		this->m_pPacketQueue->pop_front();
-	}
-	this->m_PacketQueueLock.unlock();
 }

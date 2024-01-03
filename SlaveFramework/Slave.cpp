@@ -16,7 +16,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #include "Slave.h"
 
-unsigned long Slave::GetSlaveId()
+unsigned long Slave::GetSlaveId() const
 {
 	return this->m_ulSlaveId;
 }

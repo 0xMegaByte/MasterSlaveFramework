@@ -48,17 +48,17 @@ private:
 	unsigned int m_unOpCode;			//Task or Response
 	unsigned long m_ulSlaveId;			//Slave Id recv/send
 
-	unsigned char m_ucBuffer[BUF_LEN]; //Params
+	unsigned char m_ucBuffer[BUF_LEN] ; //Params
 
 public:
 	MSFPacket(EPACKET::PacketType packetType, unsigned long ulSlaveId,
 		unsigned int unOpCode, unsigned char* pucBuffer);
 	~MSFPacket();
 
-	EPACKET::PacketType getPacketType();
-	unsigned int getOpCode();
+	EPACKET::PacketType getPacketType() const;
+	unsigned int getOpCode() const;
 	unsigned char* getBuffer();
-	unsigned long getSlaveId();
+	unsigned long getSlaveId() const;
 
 	const char* PacketTypeToString();
 
@@ -93,10 +93,8 @@ public:
 
 	bool IsEventStateSignaled(void* hEvent);
 
-	SOCKET GetSocket();			//Returns sockets
-	addrinfo* GetService();		//Returns service
-
-	//MSFPacketQueue* GetPacketQueue();
+	SOCKET GetSocket() const;			//Returns sockets
+	addrinfo* GetService() const;		//Returns service
 
 	void SocketWSACleanup();
 

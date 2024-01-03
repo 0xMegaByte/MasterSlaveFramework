@@ -36,12 +36,12 @@ MSFPacket::~MSFPacket()
 	DEBUG_PRINT_CLS("Completed\n");
 }
 
-EPACKET::PacketType MSFPacket::getPacketType()
+EPACKET::PacketType MSFPacket::getPacketType() const
 {
 	return this->m_epacketType;
 }
 
-unsigned int MSFPacket::getOpCode()
+unsigned int MSFPacket::getOpCode() const
 {
 	return this->m_unOpCode;
 }
@@ -51,7 +51,7 @@ unsigned char* MSFPacket::getBuffer()
 	return this->m_ucBuffer;
 }
 
-unsigned long MSFPacket::getSlaveId()
+unsigned long MSFPacket::getSlaveId() const 
 {
 	return this->m_ulSlaveId;
 }
@@ -59,6 +59,7 @@ unsigned long MSFPacket::getSlaveId()
 const char* MSFPacket::PacketTypeToString()
 {
 	const char* retVal = nullptr;
+
 	switch (this->m_epacketType)
 	{
 	case EPACKET::PacketType::Acknowledge:
@@ -87,27 +88,26 @@ const char* MSFPacket::PacketTypeToString()
 
 void MSFPacket::PrintPacket()
 {
-	EPACKET::PacketType packetType = this->m_epacketType;
-	unsigned int unOpCode = this->m_unOpCode;
-	unsigned long ulSlaveId = this->m_ulSlaveId;
-
-	unsigned char* pucBuffer = this->m_ucBuffer;
-
-	if (pucBuffer)
+	if (this->m_ucBuffer)
 	{
-		DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %d | SlaveId: %lu | Buffer: %s\n",
-			PacketTypeToString(), unOpCode, ulSlaveId, pucBuffer);
+		const char* pcPacketType = PacketTypeToString();
+
+		if (pcPacketType)
+		{
+			DEBUG_PRINT_CLS("\n\tPacket Type: %s | OpCode: %d | SlaveId: %lu | Buffer: %s\n",
+				pcPacketType, this->m_unOpCode, this->m_ulSlaveId, this->m_ucBuffer);
+		}
 	}
 }
 
 //-----------------Packet Dispatcher----------------------
 
-SOCKET PacketDispatcher::GetSocket()
+SOCKET PacketDispatcher::GetSocket() const
 {
 	return this->m_socket;
 }
 
-addrinfo* PacketDispatcher::GetService()
+addrinfo* PacketDispatcher::GetService() const 
 {
 	return this->m_pservice;
 }
@@ -162,7 +162,6 @@ void PacketDispatcher::Deinitialize()
 		this->SocketWSACleanup();
 	}
 
-	// UNDONE: Create a Dispatcher non-signaled state even to trigger in the dispatcher thread
 	if (this->m_hDispatcherEvent != INVALID_HANDLE_VALUE)
 		CloseHandle(this->m_hDispatcherEvent);
 

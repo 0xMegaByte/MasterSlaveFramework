@@ -36,11 +36,9 @@ public:
 	void Connect();
 	void AssignTaskExecutor(void* pTaskExecutor);
 	void* GetTaskExecutor();
-	bool IsDispatcherConnected();
+	bool IsDispatcherConnected() const;
 
 	std::mutex m_PacketQueueLock;
-
-	void SecureQueuePopFront();
 	void SecureQueuePushBack(MSFPacket* pPacket);
 
 	SlaveDispatcher();

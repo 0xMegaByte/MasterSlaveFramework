@@ -51,7 +51,7 @@ public:
 
 	void IncrementTotalSlaveCount();
 	void DecrementTotalSlaveCount();
-	unsigned long GetTotalSlaveCount();
+	unsigned long GetTotalSlaveCount() const;
 	std::mutex m_SlaveCountLock;
 
 	MasterDispatcher();

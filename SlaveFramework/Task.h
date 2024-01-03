@@ -29,7 +29,7 @@ private:
 	unsigned char* m_pucBuffer;		//Params data
 
 public:
-	EPACKET::Task GetTaskId();
+	EPACKET::Task GetTaskId() const;
 
 	Task(EPACKET::Task m_TaskId); //TODO: Handle params
 	~Task();
@@ -51,9 +51,6 @@ public:
 
 	//Handle Task Queue
 	void SecurePushBack(Task* pTask);
-	void SecurePopFirst();
-	void SecurePopDelete();
-	Task* SecureGetFirst();
 	void EmptyTaskQueue();
 
 	//Handle Task Callback map
