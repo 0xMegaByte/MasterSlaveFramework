@@ -61,7 +61,7 @@ Then pushes the newly created task to its ```TaskExecutor``` instance, which in 
 To add new task a few implementations need to take place in the Slave files and Utils library.
 
 #### Utils Library
-Under ```Communication.h``` file, add a new task id under the ```EPACKET::CMD``` namespace.\
+Under ```Communication.h``` file, add a new task id under the ```EPACKET::Task``` namespace.\
 This addition to the communication engine gives both the master and slave nodes the ability to send\/receive a task packet.
 ```
 namespace EPACKET
