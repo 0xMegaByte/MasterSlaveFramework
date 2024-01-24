@@ -9,7 +9,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Utils", "Utils\Utils.vcxpro
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{CCA4B4D5-8FA5-43CF-985F-806F8CE52042}"
 	ProjectSection(SolutionItems) = preProject
-		SlaveMaster.txt = SlaveMaster.txt
+		msf-high-logo.png = msf-high-logo.png
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SlaveFramework", "SlaveFramework\SlaveFramework.vcxproj.vcxproj", "{62C7B528-4B02-4A18-8325-9E4F953CB133}"
